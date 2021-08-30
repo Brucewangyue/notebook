@@ -66,6 +66,10 @@
 #### 环境初始化
 
 ```sh
+# 设置主机名后重启，主机名在创建k8s集群时会使用
+$ hostnamectl set-hostname [主机名]
+
+# 以下命令再所有机器上执行
 # 主机域名配置
 # 企业中推荐使用内部的DNS服务器
 $ vi /etc/hosts
@@ -109,6 +113,7 @@ $ vi /etc/fstab
 # 重启后生效
 
 # 允许 iptables 检查桥接流量，修改linux内核参数（Kubernetes要求）
+# Kubernetes支持几种不同的网络附加解决方案。接下来安装flannel网络插件，我们需要做的第一件事是我们需要在所有服务器上设置一个sysctl值，包括主节点
 $ cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
 br_netfilter
 EOF
@@ -136,13 +141,14 @@ modprobe -- ip_vs
 modprobe -- ip_vs_rr
 modprobe -- ip_vs_wrr
 modprobe -- ip_vs_sh
-# centos8.3 找不到nf_conntrack_ipv4模块 ,更换为nf_conntrack试试
-# modprobe -- nf_conntrack_ipv4
 modprobe -- nf_conntrack
 EOF
+# centos8.3 找不到nf_conntrack_ipv4模块 ,更换为nf_conntrack试试
+# modprobe -- nf_conntrack_ipv4
 
 $ chmod +x /etc/sysconfig/modules/ipvs.modules
-$ modprobe nf_conntrack_ipv4
+# $ modprobe nf_conntrack_ipv4
+$ modprobe nf_conntrack
 $ /bin/bash /etc/sysconfig/modules/ipvs.modules
 
 # 重启服务器
@@ -169,22 +175,34 @@ yum install docker-ce docker-ce-cli containerd.io
 
 # 查看当前镜像源中支持的docker版本
 yum list docker-ce --showduplicates
+Docker CE Stable - x86_64     48 kB/s |  15 kB     00:00    
+可安装的软件包
+docker-ce.x86_64      3:20.10.8-3.el8         docker-ce-stabl
 # 安装指定版本
-yum install --setopt=obsoletes=0 docker-ce-18.xxx -y
+yum install --setopt=obsoletes=0 docker-ce-3:19.03.15-3.el8 -y
+# --setopt=obsoletes=0 此参数为取消安装包取代关系，有时候有些旧的安装包被新的安装包取代了，安装的时候就会自动安装新的。
+
 # 添加配置文件
 # Docker默认情况下使用Cgroup Driver为cgroupfs，而K8s推荐使用systemd替代cgroupfs
+mkdir /etc/docker
 cat << EOF >/etc/docker/daemon.json
 {
-	"exec-opts":["native.cgroupdriver=systemd"],
-	"registry-mirrors": [
-        "https://registry.docker-cn.com",
-        "http://hub-mirror.c.163.com",
-        "https://docker.mirrors.ustc.edu.cn"
-      ]
+    "exec-opts": ["native.cgroupdriver=systemd"],
+    "registry-mirrors": [
+            "https://registry.docker-cn.com",
+            "https://registry.aliyuncs.com"
+          ]
 }
 EOF
 
 # 启动Docker
+systemctl start docker
+systemctl enable docker
+# 查看Docker信息
+$ docker info 
+ ...
+ Cgroup Driver: systemd
+
 ```
 
 #### 安装K8S组件
@@ -207,8 +225,12 @@ repo_gpgcheck=1
 gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
 EOF
 
-# 安装
+# 安装（最新版本可能会有一些组件的不兼容，如网络组件）
 yum install -y kubelet kubeadm kubectl
+# 查看当前镜像源中支持的docker版本
+yum list kubeadm --showduplicates
+# 安装指定版本
+yum install -y --setopt=obsoletes=0 kubelet-1.17.4-0 kubeadm-1.17.4-0 kubectl-1.17.4-0
 
 # 配置kubelet的cgroup
 cat << EOF > /etc/sysconfig/kubelet
@@ -218,58 +240,148 @@ EOF
 
 # 设置开机启动
 systemctl enable kubelet
+
+# 使用kubeadm安装k8s集群时，会到docker镜像仓库下载k8s所需组件的镜像
+# 查看需要下载的镜像
+$ kubeadm config images list
+
+I0830 02:12:32.470444    8646 version.go:254] remote version is much newer: v1.22.1; falling back to: stable-1.20
+k8s.gcr.io/kube-apiserver:v1.20.10
+k8s.gcr.io/kube-controller-manager:v1.20.10
+k8s.gcr.io/kube-scheduler:v1.20.10
+k8s.gcr.io/kube-proxy:v1.20.10
+k8s.gcr.io/pause:3.2
+k8s.gcr.io/etcd:3.4.13-0
+k8s.gcr.io/coredns:1.7.
+
+# 由于k8s.gcr.io国内无法访问，所以需要替换镜像源
+
+# 拉取镜像
+# 方法一
+$ kubeadm config images pull --image-repository registry.aliyuncs.com/google_containers
+# 如果中途找不到最新的 coredns/，那么就单独下载最后版本，修改名字为指定的版本
+# 添加镜像源 deamon.json "https://registry.aliyuncs.com"
+
+# 下载
+$ docker pull registry.aliyuncs.com/google_containers/coredns:latest
+# 改名
+$ docker tag registry.aliyuncs.com/google_containers/coredns:latest registry.aliyuncs.com/google_containers/coredns:v1.8.4
+
+# 方法二
+$ images=(
+    kube-apiserver:v1.17.17
+    kube-controller-manager:v1.17.17
+    kube-scheduler:v1.17.17
+    kube-proxy:v1.17.17
+    pause:3.1
+    etcd:3.4.3-0
+    coredns:1.6.5
+)
+
+for image in ${images[@]}
+do
+	docker pull registry.aliyuncs.com/google_containers/${image}
+	docker tag registry.aliyuncs.com/google_containers/${image} k8s.gcr.io/${image}
+	docker image rm registry.aliyuncs.com/google_containers/${image}
+done
 ```
 
 #### 集群初始化
 
 ```sh
 # 下面的操作只需要在master节点上执行
-
-# 使用kubeadm安装k8s集群时，会到docker镜像仓库下载k8s所需组件的镜像
-# 查看需要下载的镜像
-$ kubeadm config images list
-
-k8s.gcr.io/kube-apiserver:v1.22.1
-k8s.gcr.io/kube-controller-manager:v1.22.1
-k8s.gcr.io/kube-scheduler:v1.22.1
-k8s.gcr.io/kube-proxy:v1.22.1
-k8s.gcr.io/pause:3.5
-k8s.gcr.io/etcd:3.5.0-0
-k8s.gcr.io/coredns/coredns:v1.8.4
-
-# 拉取镜像
-# 方法一
-$ kubeadm config images pull --image-repository registry.aliyuncs.com/google_containers
-
-# 方法二
-$ images=(
-    kube-apiserver:v1.22.1
-    kube-controller-manager:v1.22.1
-    kube-scheduler:v1.22.1
-    kube-proxy:v1.22.1
-    pause:3.5
-    etcd:3.5.0-0
-    coredns/coredns:v1.8.4
-)
-
-for image in ${images[@]}
-do
-	docker pull registry.aliyuncs.com/google_containers//${image}
-	docker tag registry.aliyuncs.com/google_containers//${image} k8s.gcr.io/${image}
-	docker image rm registry.aliyuncs.com/google_containers//${image}
-done
-
-
-
 # 创建集群，会自动下载kubernetes所需的组件
 $ kubeadm init \
 --image-repository registry.aliyuncs.com/google_containers \
---kubernetes-version=v1.22.1 \
 --pod-network-cidr=10.244.0.0/16 \
---apiserver-advertise-address=192.168.177.100
+--apiserver-advertise-address=192.168.177.100 \
+--kubernetes-version=v1.17.4 \
+--node-name=master1
 
+#   --node-name（重点）：如果执行当前命令的主机名不是域名，需要指定node-name参数
 #   --kubernetes-version：kubernetes版本
 #   --pod-network-cidr：指明 pod 网络可以使用的 IP 地址段。如果设置了这个参数，控制平面将会为每一个节点自动分配 CIDRs
 #	--apiserver-advertise-address ： 主节点Ip,为master(控制面板)节点的 API server 设置广播地址
+
+Your Kubernetes control-plane has initialized successfully!
+To start using your cluster, you need to run the following as a regular user:
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+Alternatively, if you are the root user, you can run:
+  export KUBECONFIG=/etc/kubernetes/admin.conf
+You should now deploy a pod network to the cluster.
+Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
+  https://kubernetes.io/docs/concepts/cluster-administration/addons/
+Then you can join any number of worker nodes by running the following on each as root:
+kubeadm join 192.168.177.100:6443 --token lsnex0.2tnwvfj3kl2c0ziz \
+	--discovery-token-ca-cert-hash sha256:479d6791a9108e17a6e04d405ae95564c414acb756bd13043ab5a5910412dd0a 
+#############
+
+# 创建集群成功后，按提示创建目录和文件
+
+# 创建集群加入令牌
+$ kubeadm token create
+# 其他节点加入集群
+# kubeadm join [api-server-endpoint] [flags]
+$ kubeadm join 192.168.177.100:6443 \
+--discovery-token eeqqgv.ytlyhleqb5i7w4v4 \
+--discovery-token-ca-cert-hash sha256:1a78b6956df07f02d330505afa7c299bd339b6d8ac2c3e36539e6ec2f6554419
+
+# 查看集群状态
+$ kubectl get nodes
+NAME     STATUS     ROLES                  AGE     VERSION
+master   NotReady   control-plane,master   19m     v1.22.1
+node1    NotReady   <none>                 7m38s   v1.22.1
+node2    NotReady   <none>                 11m     v1.22.1
+
+# 可以看到所有节点的状态都为未准备，是因为还未安装网络插件
 ```
 
+#### 安装网络插件
+
+k8s支持多种网络插件，比如flannel、calico、canal等，以下使用[flannel](https://github.com/flannel-io/flannel#flannel)
+
+```sh
+# 以下操作再master节点执行
+$ wget https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+
+# 修改文件中的quay.io仓库为quay-mirror.qiniu.com
+
+# 使用配置文件启动flannel
+$ kubectl apply -f kube-flannel.yml
+
+# 再次查看集群状态
+$ kubectl get nodes
+```
+
+#### 安装异常处理
+
+- 删除集群、退出已加入的集群
+
+  ```sh
+  kubeadm reset -f
+  ```
+
+- 卸载集群，重新创建集群后提示证书不正确
+
+  ```sh
+  [root@master ~]# kubectl get nodes
+  Unable to connect to the server: x509: certificate signed by unknown authority (possibly because of "crypto/rsa: verification error" while trying to verify candidate authority certificate "kubernetes")
+  
+  # 处理办法：删除目录后重新创建集群
+  $ rm -rf $HOME/.kube
+  ```
+
+- kubectl get nodes无法获取信息
+
+  ```sh
+  [root@master ~]# kubectl get nodes
+  The connection to the server localhost:8080 was refused - did you specify the right host or port?
+  
+  $ mkdir -p $HOME/.kube
+  $ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  $ sudo chown $(id -u):$(id -g) $HOME/.kube/config
+  ```
+
+  

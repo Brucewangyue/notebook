@@ -59,9 +59,11 @@
 
 ##  集群环境搭建
 
-搭建测试环境集群：1主2从
-
-配置：3台2核2G内存服务器
+- 搭建测试环境集群：1主2从
+- 3台2核2G内存服务器
+- 系统版本：centos 8
+- Docker版本：20.10.8
+- K8s版本：v1.20.10
 
 #### 环境初始化
 
@@ -84,8 +86,7 @@ PING node1 (192.168.177.101) 56(84) bytes of data.
 # 时间同步
 # Kubernetes集群需要服务器时间精准一至，企业中建议配置内部的时间同步服务器
 # 启动chronyd服务
-$ systemctl start chronyd
-$ systemctl enable chronyd
+$ systemctl start chronyd && systemctl enable chronyd
 
 # 测试
 $ date
@@ -93,10 +94,8 @@ $ date
 
 # 禁用iptables和firewalld服务(可选：测试环境)
 # Kubernetes和Docker在运行中会产生大量的iptables规则，为了不让系统规则和它们混淆，关闭系统规则
-$ systemctl stop firewalld
-$ systemctl disable firewalld
-$ systemctl stop iptables
-$ systemctl disable iptables
+$ systemctl stop firewalld && systemctl disable firewalld
+$ systemctl stop iptables && systemctl disable iptables
 
 # 禁用selinux  (待查证)
 # selinux是linux系统下的一个安全服务，如果不关闭它，在安装集群时会产生各种各样的问题
@@ -177,9 +176,9 @@ yum install docker-ce docker-ce-cli containerd.io
 yum list docker-ce --showduplicates
 Docker CE Stable - x86_64     48 kB/s |  15 kB     00:00    
 可安装的软件包
-docker-ce.x86_64      3:20.10.8-3.el8         docker-ce-stabl
+docker-ce.x86_64      3:19.03.13-3.el8         docker-ce-stabl
 # 安装指定版本
-yum install --setopt=obsoletes=0 docker-ce-3:19.03.15-3.el8 -y
+yum install --setopt=obsoletes=0 docker-ce-19.03.15 docker-ce-cli-19.03.15 containerd.io -y
 # --setopt=obsoletes=0 此参数为取消安装包取代关系，有时候有些旧的安装包被新的安装包取代了，安装的时候就会自动安装新的。
 
 # 添加配置文件
@@ -189,15 +188,13 @@ cat << EOF >/etc/docker/daemon.json
 {
     "exec-opts": ["native.cgroupdriver=systemd"],
     "registry-mirrors": [
-            "https://registry.docker-cn.com",
             "https://registry.aliyuncs.com"
           ]
 }
 EOF
 
 # 启动Docker
-systemctl start docker
-systemctl enable docker
+systemctl start docker && systemctl enable docker
 # 查看Docker信息
 $ docker info 
  ...
@@ -230,7 +227,7 @@ yum install -y kubelet kubeadm kubectl
 # 查看当前镜像源中支持的docker版本
 yum list kubeadm --showduplicates
 # 安装指定版本
-yum install -y --setopt=obsoletes=0 kubelet-1.17.4-0 kubeadm-1.17.4-0 kubectl-1.17.4-0
+yum install -y --setopt=obsoletes=0 kubelet-1.20.10-0 kubeadm-1.20.10-0 kubectl-1.20.10-0
 
 # 配置kubelet的cgroup
 cat << EOF > /etc/sysconfig/kubelet
@@ -239,7 +236,7 @@ KUBE_PROXY_MODE="ipvs"
 EOF
 
 # 设置开机启动
-systemctl enable kubelet
+$ systemctl restart kubelet && systemctl enable kubelet
 
 # 使用kubeadm安装k8s集群时，会到docker镜像仓库下载k8s所需组件的镜像
 # 查看需要下载的镜像
@@ -259,8 +256,7 @@ k8s.gcr.io/coredns:1.7.
 # 拉取镜像
 # 方法一
 $ kubeadm config images pull --image-repository registry.aliyuncs.com/google_containers
-# 如果中途找不到最新的 coredns/，那么就单独下载最后版本，修改名字为指定的版本
-# 添加镜像源 deamon.json "https://registry.aliyuncs.com"
+# 如果中途找不到最新的 coredns，那么就单独下载latest版本，修改名字为指定的版本
 
 # 下载
 $ docker pull registry.aliyuncs.com/google_containers/coredns:latest
@@ -294,8 +290,8 @@ done
 $ kubeadm init \
 --image-repository registry.aliyuncs.com/google_containers \
 --pod-network-cidr=10.244.0.0/16 \
---apiserver-advertise-address=192.168.177.100 \
---kubernetes-version=v1.17.4 \
+--apiserver-advertise-address=192.168.177.111 \
+--kubernetes-version=v1.20.10 \
 --node-name=master1
 
 #   --node-name（重点）：如果执行当前命令的主机名不是域名，需要指定node-name参数
@@ -349,11 +345,48 @@ $ wget https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kub
 # 修改文件中的quay.io仓库为quay-mirror.qiniu.com
 
 # 使用配置文件启动flannel
-$ kubectl apply -f kube-flannel.yml
+$ kubectl apply -f flannel.yml
 
 # 再次查看集群状态
-$ kubectl get nodes
+$ kubectl get po -n kube-system
+
+NAME                               READY   STATUS              RESTARTS   AGE
+coredns-7f89b7bc75-mg85w           0/1     Pending             0          11m
+coredns-7f89b7bc75-twgb2           0/1     Pending             0          11m
+etcd-master11                      1/1     Running             0          12m
+kube-apiserver-master11            1/1     Running             0          12m
+kube-controller-manager-master11   1/1     Running             0          12m
+kube-flannel-ds-6ftfn              0/1     Init:ErrImagePull   0          3m19s
+kube-proxy-7lm2m                   1/1     Running             0          11m
+kube-scheduler-master11            1/1     Running             0          12m
+
+# 发现kube-flannel-ds-6ftfn 镜像无法拉取，问题出在了flannel安装文件中的镜像源
+# 在dockerhub中查找flannel，使用一个靠前的镜像仓库，然后替换即可
+# 删除原来的配置
+$ kubectl delete -f flannel.yml
+# 修改好flannel.yml文件中的镜像源后再安装
 ```
+
+![image-20210831161752947](image-20210831161752947.png)
+
+![image-20210831161827567](image-20210831161827567.png)
+
+```sh
+# 配置完等待1分钟
+$ kubectl get po -n kube-system
+NAME                               READY   STATUS    RESTARTS   AGE
+coredns-7f89b7bc75-mg85w           1/1     Running   0          32m
+coredns-7f89b7bc75-twgb2           1/1     Running   0          32m
+etcd-master11                      1/1     Running   0          32m
+kube-apiserver-master11            1/1     Running   0          32m
+kube-controller-manager-master11   1/1     Running   0          32m
+kube-flannel-ds-rdn56              1/1     Running   0          108s
+kube-proxy-7lm2m                   1/1     Running   0          32m
+kube-scheduler-master11            1/1     Running   0          32m
+
+```
+
+
 
 #### 安装异常处理
 

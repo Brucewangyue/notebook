@@ -8,37 +8,31 @@
 
 **传统部署时代：**
 
-```sh
-# 优点：部署简单，无其他技术要求
-# 缺点：资源不可隔离，如果一台机器部署了多个应用，某个应用故障导致资源占用大，会殃及其他应用
-```
+- 优点：部署简单，无其他技术要求
+-  缺点：资源不可隔离，如果一台机器部署了多个应用，某个应用故障导致资源占用大，会殃及其他应用
 
 **虚拟化部署时代：**
 
-```sh
-# 优点：资源隔离，提供了一定程度的安全性
-# 缺点：增加了操作系统，浪费了部分资源，虚拟机管理不够简单
-```
+- 优点：资源隔离，提供了一定程度的安全性
+- 缺点：增加了操作系统，浪费了部分资源，虚拟机管理不够简单
 
 **容器部署时代：**
 
-```sh
-# 优点：
-	每个容器的资源隔离，又共享了宿主机的底层基础架构
-	敏捷应用程序的创建和部署：与使用 VM 镜像相比，提高了容器镜像创建的简便性和效率。
-    持续开发、集成和部署：通过快速简单的回滚（由于镜像不可变性），支持可靠且频繁的 容器镜像构建和部署。
-    关注开发与运维的分离：在构建/发布时而不是在部署时创建应用程序容器镜像， 从而将应用程序与基础架构分离。
-    可观察性：不仅可以显示操作系统级别的信息和指标，还可以显示应用程序的运行状况和其他指标信号。
-    跨开发、测试和生产的环境一致性：在便携式计算机上与在云中相同地运行。
-    跨云和操作系统发行版本的可移植性：可在 Ubuntu、RHEL、CoreOS、本地、 Google Kubernetes Engine 和其他任何地方运行。
-    以应用程序为中心的管理：提高抽象级别，从在虚拟硬件上运行 OS 到使用逻辑资源在 OS 上运行应用程序。
-    松散耦合、分布式、弹性、解放的微服务：应用程序被分解成较小的独立部分， 并且可以动态部署和管理 - 而不是在一台大型单机上整体运行。
-    资源隔离：可预测的应用程序性能。
-    资源利用：高效率和高密度。
-# 缺点：
-	学习成本高
-	
-```
+- 优点：
+  - 每个容器的资源隔离，又共享了宿主机的底层基础架构
+  - 敏捷应用程序的创建和部署：与使用 VM 镜像相比，提高了容器镜像创建的简便性和效率
+  -  持续开发、集成和部署：通过快速简单的回滚（由于镜像不可变性），支持可靠且频繁的 容器镜像构建和部署
+  - 关注开发与运维的分离：在构建/发布时而不是在部署时创建应用程序容器镜像， 从而将应用程序与基础架构分离
+  - 可观察性：不仅可以显示操作系统级别的信息和指标，还可以显示应用程序的运行状况和其他指标信号
+  - 跨开发、测试和生产的环境一致性：在便携式计算机上与在云中相同地运行
+  - 跨云和操作系统发行版本的可移植性：可在 Ubuntu、RHEL、CoreOS、本地、 Google Kubernetes Engine 和其他任何地方运行
+  - 以应用程序为中心的管理：提高抽象级别，从在虚拟硬件上运行 OS 到使用逻辑资源在 OS 上运行应用程序
+  - 松散耦合、分布式、弹性、解放的微服务：应用程序被分解成较小的独立部分， 并且可以动态部署和管理 - 而不是在一台大型单机上整体运行
+  - 资源隔离：可预测的应用程序性能
+  - 资源利用：高效率和高密度
+
+- 缺点：
+  - 学习成本高
 
 #### 容器化部署带来了新问题
 
@@ -399,7 +393,8 @@ kube-scheduler-master11            1/1     Running   0          32m
 - 卸载集群，重新创建集群后提示证书不正确
 
   ```sh
-  [root@master ~]# kubectl get nodes
+  $ kubectl get nodes
+  
   Unable to connect to the server: x509: certificate signed by unknown authority (possibly because of "crypto/rsa: verification error" while trying to verify candidate authority certificate "kubernetes")
   
   # 处理办法：删除目录后重新创建集群
@@ -417,4 +412,145 @@ kube-scheduler-master11            1/1     Running   0          32m
   $ sudo chown $(id -u):$(id -g) $HOME/.kube/config
   ```
 
+#### 测试
+
+```sh
+# 部署nginx
+$ kubectl create deployment nginx --image=nginx
+
+# 暴露端口
+$ kubectl expose deployment nginx --port=80 --type=NodePort
+
+# 查看服务状态
+$ kubectl get pod,svc
+
+# 查看pod的详细信息，包括创建过程
+$ kubectl describe pod podname
+```
+
   
+
+## 以二进制的方式搭建集群
+
+
+
+## 资源管理
+
+#### 资源管理介绍
+
+
+
+#### 资源管理方式
+
+- 命令式对象管理
+
+  - ```sh
+    kubectl run [pod控制器名称]/[pod名称] [args]
+    ```
+
+- 命令式对象配置
+
+  - ```sh
+    kubectl create/patch -f nginx-pod.yaml
+    ```
+
+- 声明式对象配置（用于创建和更新资源的结合体）
+
+  - ```sh
+    kubectl apply -f nginx-pod.yaml
+    ```
+
+![image-20210901171055998](image-20210901171055998.png)
+
+##### 命令式对象管理
+
+```sh
+# kubectl command type [name] [flags]
+#   command: create, get, delete
+#	type: nodes, pod[po], service[svc]...
+
+# 查看所有可用type，包含type的简写
+$ type kubectl api-resources
+
+# 查看	pod
+$ kubectl get po nginx-6799fc88d8-z49rp -o wide
+
+NAME                     READY   STATUS    RESTARTS   AGE   IP           NODE    NOMINATED NODE 
+nginx-6799fc88d8-z49rp   1/1     Running   0          42m   10.244.2.6   node2   <none>           
+
+```
+
+
+
+##### 命令式对象配置
+
+```sh
+# 创建一个nginxpod.yaml
+$ vi nginxpod.yaml
+
+-----------------------------
+# 创建命名空间
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+---
+# 创建pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginxpod
+  namespace: dev
+spec:
+  # 创建容器
+  containers:
+  - name: nginx-containers
+    image: nginx
+-----------------------------
+
+# 创建
+$ kubectl create -f nginxpod.yaml 
+
+namespace/dev created
+pod/nginxpod created
+
+# 删除
+$ kubectl delete -f nginxpod.yaml 
+
+namespace "dev" deleted
+pod "nginxpod" deleted
+
+```
+
+
+
+##### 声明式对象配置
+
+```sh
+# 使用上面创建好的nginxpod.yaml
+
+# 创建
+$ kubectl apply -f nginxpod.yaml 
+
+namespace/dev created
+pod/nginxpod created
+
+# 再次运行
+$ kubectl apply -f nginxpod.yaml 
+
+namespace/dev unchanged
+pod/nginxpod unchanged
+
+# 如果yaml文件修改过，如镜像的版本修改了，那么再次运行就会修改pod
+```
+
+##### 扩展：kubectl
+
+> kubectl默认不支持在node节点上运行
+
+kubectl的运行需要配置的，它的配置文件是$HOME/.kube，如果想要在node节点上运行命令，需要将master的.kube文件复制到node节点上
+
+```sh
+scp -r ~/.kube node1:~/
+```
+

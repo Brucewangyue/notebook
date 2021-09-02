@@ -342,10 +342,13 @@ metadata:
   namespace: dev
 spec:
   type: ClusterIP
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
   # clusterIP: 0.106.35.100
   # 关联deployment
   selector:
-    matchLabels:
       app: deploy-nginx
   
 -----------------------------

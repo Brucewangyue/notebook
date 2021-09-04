@@ -470,7 +470,7 @@ $ kubectl describe pod podname
 #	type: nodes, pod[po], service[svc]...
 
 # 查看所有可用type，包含type的简写
-$ type kubectl api-resources
+$ kubectl api-resources
 
 # 查看	pod
 $ kubectl get po nginx-6799fc88d8-z49rp -o wide
@@ -678,15 +678,8 @@ $ kubectl exec -it pod-command -n dev -c busybox /bin/sh
 #### 环境变量
 
 ```sh
-apiVersion: v1
-kind: Pod
-metadata:
-  name: pod-command
-  namespace: dev
 spec:
  containers:
-  - name: nginx
-    image: nginx
     env:
     - name: "pwd"          # 这种方法不推荐，后续推荐
       value: "123"
@@ -701,8 +694,6 @@ spec:
 ![image-20210903111931921](01 kubernetes.assets/image-20210903111931921.png)
 
 ```sh
-
-
 ------------------
 apiVersion: v1
 kind: Pod
@@ -735,16 +726,8 @@ spec:
 ![image-20210903114629307](01 kubernetes.assets/image-20210903114629307.png)
 
 ```sh
-apiVersion: v1
-kind: Pod
-metadata:
-  name: pod-resources
-  namespace: dev
 spec:
   containers:
-  - name: nginx1
-    image: nginx
-    imagePullPolicy: IfNotPresent
     resources:
       limits:                  # 资源限制
         cpu: "2"               # cpu核数限制
@@ -865,17 +848,9 @@ ifconfig ens33:t1 192.168.109.202 netmask 255.255.0.0 up
 
 **测试**
 
-```sh
-apiVersion: v1
-kind: Pod
-metadata:
-  name: pod-lifecycle
-  namespace: dev
+```yaml
+...
 spec:
-  containers:
-  - name: nginx1
-    image: nginx
-    imagePullPolicy: IfNotPresent
     lifecycle: 
       postStart:
         exec:
@@ -887,13 +862,10 @@ spec:
 
 
 
-
-
-
-
-
-
 #### 容器探测
+
+- 存活性探针 liveness probes：用于检测当前实例是否处理正常运行状态，如果不是，k8s会重启
+- 就绪性探针 readiness probes：用于检测应用实例当前是否可以接受请求，如果不能，k8s不会转发流量
 
 
 
@@ -901,5 +873,309 @@ spec:
 
 
 
+
+
 ### Pod调度
 
+#### 定向调度
+
+配置定向调度，会跳过schedule的调度逻辑，**如果配置的调度节点不存在，则pod无法启动**
+
+```yaml
+# nodeName 节点名调度
+...
+spec:
+  nodeName: node1
+------------------
+# nodeSelector label选择调度
+...
+spec:
+  nodeSelector: 
+    k1: v1
+```
+
+
+
+#### 亲和性调度
+
+- nodeAffinity：以node为目标，在亲和度大的node上调度pod
+- podAffinity：以pod为目标，在亲和度大的pod的node上调度pod
+- podAntiAffinity：以pod为目标，不在指定pod的node上调度
+
+> 亲和性：如果两个应用频繁交互，那就用亲和性让两个应用尽可能靠近，减少网络通信损耗
+>
+> 反亲和性：当部署的应用采用多副本部署时，有必要采用反亲和性让各个应用打散分部到各个node上，提高可用性
+
+**nodeAffinity**
+
+```yaml
+spec:
+  affinity:
+    nodeAffinity:                                                # 如果另外定义了nodeSelector，需要同时满足条件才能调度
+      requiredDuringSchedulingIgnoredDuringExecution:            # 硬性限制，必须满足的条件
+        nodeSelectorTerms:                                       # 存在多个时，满足一个即可调度
+        - matchFields:                                           # 匹配节点字段
+          - key: 键
+            operator: Exists                                     # 关系符：In NotIn Exists Gt Lt DoesNotExists
+            value: 值
+        - matchExpressions:                                      # 匹配节点标签（推荐）存在多个时，满足所有才能调度
+          - key:
+            operator: In                                         # 关系符
+            values:
+            
+      preferredDuringSchedulingIgnoredDuringExecution:           # 软性限制，优先选择满足条件
+        weight: 1                                                # 权重
+```
+
+测试
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-node-affinity
+  namespace: dev
+spec:
+  containers:
+  - name: nginx1
+    image: nginx
+    imagePullPolicy: IfNotPresent
+  affinity:
+    nodeAffinity: 
+      requiredDuringSchedulingIgnoredDuringExecution: 
+        nodeSelectorTerms: 
+        - matchExpressions:
+          - key: env
+            operator: In
+            values: ['dev1']
+            
+# 结果状态为Pending，因为没有一个node的label存在env=dev1
+NAME                            READY   STATUS             RESTARTS   AGE
+pod-node-affinity               0/1     Pending            0          21s
+```
+
+**podAffinity**
+
+```yaml
+spec:
+  affinity:
+    nodeAffinity:                                                # 
+      requiredDuringSchedulingIgnoredDuringExecution:            # 硬性限制，必须满足的条件
+        namespace:                                               # 指定惨遭的命名空间
+        topologkey:                                              # 指定调用域
+        labelSelector:
+          matchExpressions: 
+          matchLabels:                                           # 用于指定matchExpressions数组
+```
+
+```sh
+# topologkey
+#   kubernetes.io/hostname（常用）
+#   kubernetes.io/os
+```
+
+
+
+**podAntiAffinity**
+
+配置方式同podAffinity
+
+
+
+#### 污点taint调度
+
+![image-20210904113010897](01 kubernetes.assets/image-20210904113010897.png)
+
+```sh
+# 设置污点
+$ kubectl taint nodes node1 key=value:effect
+
+# 去除污点
+$ kubectl taint nodes node1 key:effect-
+
+# 去除所有污点
+$ kubectl taint nodes node1 key-
+```
+
+ **测试**
+
+```sh
+$ kubectl describe node master1
+
+Taints:             node-role.kubernetes.io/master:NoSchedule
+# master节点默认是NoSchedule
+```
+
+#### 容忍
+
+![image-20210904114317768](01 kubernetes.assets/image-20210904114317768.png)
+
+**测试**
+
+```sh
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-node-affinity
+  namespace: dev
+spec:
+  containers:
+  - name: nginx1
+    image: nginx
+    imagePullPolicy: IfNotPresent
+  tolerations:
+  - key: "tag"            # 要容忍的污点k
+    operator: "Equal"
+    value: "test"         
+    effect: "NoExecute"
+    # tolerationSeconds: 60 # 当容忍规则为NoExecute时生效，标识pod在node上的停留时间（少用）
+```
+
+
+
+## Pod控制器
+
+#### Pod控制器介绍
+
+按pod的被创建方式，可以分为两类：
+
+- 自主式创建：k8s直接创建，这种pod删除后就没有了
+- 控制器创建：通过控制器创建的pod，这种pod删除之后还会自动创建
+
+> **`什么是Pod控制器`**
+>
+> ​    pod控制器是管理pod的中间层，使用pod控制之后，只需要告诉控制器我们需要什么样的pod，需要多少个，它就会创建出满足条件的pod并且确保每一个pod处于用户期望的状态，如果pod在运行中出现故障，控制器会基于指定的策略重启或者重建pod
+
+#### ReplicaSet
+
+![image-20210904150959616](01 kubernetes.assets/image-20210904150959616.png)
+
+```yaml
+# 定义控制器
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: pc-replica-set
+  namespace: dev
+  labels:
+    app: replica-set-nginx
+    
+# 定义控制器元数据
+spec:
+  replicas: 3                                     # 副本数
+  selector:
+    matchLabels:                                  # 这里需要和pod的labels匹配
+      app: replica-set-nginx
+    # matchExpressions:
+    # - {key: app, operator: In, values: ['nginx-replica-set']}
+    
+  # 定义pod创建模板
+  template:
+    metadata:
+      name: pod-name-replica-set-nginx
+      namespace: dev
+      labels:
+        app: replica-set-nginx
+    spec:
+      containers:
+      - name: nginx1
+        image: nginx
+        imagePullPolicy: IfNotPresent
+```
+
+```sh
+# 扩缩容方式一：
+$ kubectl edit rs pc-replica-set -n dev
+
+# 进入后修改replicas的数量后，wq保存退出即可
+# 通过此方法也可以修改镜像版本等
+
+# 扩缩容方式二：
+$ kubectl scale rs pc-replica-set --replicas=2 -n dev
+```
+
+
+
+#### Deployment
+
+![image-20210904154833032](01 kubernetes.assets/image-20210904154833032.png)
+
+Deployment主要功能：
+
+- 支持ReplicaSet的所有功能
+- **支持发布的停止、更新**
+- **支持版本滚动更新和版本回退**
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pc-deployment
+  namespace: dev
+  labels:
+    app: deployment-nginx
+    
+spec:
+  replicas: 3                
+  paused: false                           # deployment被创建后是否暂停pod的部署，默认false
+  progressDeadlineSeconds: 600            # 部署超时时间(s)，默认600
+  revisionHistoryLimit: 3                 # 保留历史版本，默认10
+  minReadySeconds: 
+  strategy:                               # 策略
+    type: RollingUpdate                   # 滚动更新策略
+    rollingUpdate:
+      maxSurge: 30%                       # 最大额外可以存在的副本数，可以为百分比，也可以是整数
+      maxUnavailable: 30%                 # 最大不可用状态的pod的最大值
+  selector:
+    matchLabels:                                  
+      app: deployment-nginx
+    # matchExpressions:
+    # - {key: app, operator: In, values: ['nginx-replica-set']}
+
+  template:
+    metadata:
+      name: pod-name-deployment-nginx
+      namespace: dev
+      labels:
+        app: deployment-nginx
+    spec:
+      containers:
+      - name: nginx1
+        image: nginx
+        imagePullPolicy: IfNotPresent
+```
+
+```sh
+$ kubectl get deploy,rs,po -n dev
+
+NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/deploy-nginx   0/3     3            0           15s
+# UP-TO-DATE：目前在最新版本的pod数
+# AVAILABLE：目前状态为可用的pod
+
+NAME                                      DESIRED   CURRENT   READY   AGE
+replicaset.apps/deploy-nginx-686b9c7f68   3         3         0       15s
+# rs的名：deploy名 + 随机数
+
+NAME                                READY   STATUS              RESTARTS   AGE
+pod/deploy-nginx-686b9c7f68-d8bzv   0/1     ContainerCreating   0          15s
+pod/deploy-nginx-686b9c7f68-jl9zh   0/1     ContainerCreating   0          15s
+pod/deploy-nginx-686b9c7f68-ncsfm   0/1     ContainerCreating   0          15s
+# pod名：rs名 + 随机数
+```
+
+
+
+#### Horizontal Pod Autosacler
+
+#### DaemonSet
+
+#### Jon
+
+#### Cronjob
+
+#### StatefulSet
+
+
+
+## Service

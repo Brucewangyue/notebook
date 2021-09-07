@@ -135,7 +135,7 @@ spec:
 
 #### 端口设置
 
-![image-20210903111931921](Pod.assets/image-20210903111931921.png)
+![image-20210903111931921](assets/image-20210903111931921.png)
 
 ```sh
 ------------------
@@ -163,11 +163,11 @@ spec:
       containerPort: 8080
 ```
 
-![image-20210903111910911](Pod.assets/image-20210903111910911.png)
+![image-20210903111910911](assets/image-20210903111910911.png)
 
 #### 资源配额
 
-![image-20210903114629307](Pod.assets/image-20210903114629307.png)
+![image-20210903114629307](assets/image-20210903114629307.png)
 
 ```sh
 spec:
@@ -185,7 +185,7 @@ spec:
 
 ### Pod生命周期
 
-![image-20210903151012559](Pod.assets/image-20210903151012559.png)
+![image-20210903151012559](assets/image-20210903151012559.png)
 
 **pod的装填**
 
@@ -201,17 +201,17 @@ spec:
 
 **创建**
 
-![image-20210903153714000](Pod.assets/image-20210903153714000.png)
+![image-20210903153714000](assets/image-20210903153714000.png)
 
 **终止**
 
-![image-20210903153749512](Pod.assets/image-20210903153749512.png)
+![image-20210903153749512](assets/image-20210903153749512.png)
 
 
 
 #### 初始化容器
 
- ![image-20210903154946986](Pod.assets/image-20210903154946986.png)
+ ![image-20210903154946986](assets/image-20210903154946986.png)
 
 ```sh
 apiVersion: v1
@@ -428,7 +428,7 @@ spec:
 
 #### 污点taint调度
 
-![image-20210904113010897](Pod.assets/image-20210904113010897.png)
+![image-20210904113010897](assets/image-20210904113010897.png)
 
 ```sh
 # 设置污点
@@ -452,7 +452,7 @@ Taints:             node-role.kubernetes.io/master:NoSchedule
 
 #### 容忍
 
-![image-20210904114317768](Pod.assets/image-20210904114317768.png)
+![image-20210904114317768](assets/image-20210904114317768.png)
 
 **测试**
 

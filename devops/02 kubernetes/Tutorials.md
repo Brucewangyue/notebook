@@ -38,7 +38,7 @@ $ kubectl delete ns dev
 
 pod是k8s的最小操作单元，程序运行在容器中，容器运行在pod中
 
-![image-20210902151023746](02 tutorials.assets/image-20210902151023746.png)
+![image-20210902151023746](assets/image-20210902151023746.png)
 
 Pause容器称为根容器，其他容器称为用户用气
 
@@ -188,7 +188,7 @@ pod/nginx1 labeled
 
 在k8s中，pod是最小的控制单元，但是k8s很少直接控制pod，一搬都是通过pod控制器来完成。pod控制器用于pod的管理，确保pod资源符合预期的状态，当pod的资源出现故障时，会尝试进行重启或重建pod
 
-![image-20210902162328826](02 tutorials.assets/image-20210902162328826.png)
+![image-20210902162328826](assets/image-20210902162328826.png)
 
 **演练**
 
@@ -292,7 +292,7 @@ $ kubectl delete pod deploy-nginx-686b9c7f68-ct4wt -n dev
 
 service 可以看作时一组同类pod**对外的访问接口**，借助service，应用可以方便的实现服务发现和负载均衡
 
-![image-20210902172924789](02 tutorials.assets/image-20210902172924789.png)
+![image-20210902172924789](assets/image-20210902172924789.png)
 
 **演练**
 

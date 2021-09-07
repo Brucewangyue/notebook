@@ -177,7 +177,7 @@ bin  dev  etc  home  lib  lib64  lost+found  media  mnt  opt  proc  root  run  s
 
 ## 小结
 
-![image-20210818141840755](./file/99d9b76427e49fc9ea24dba0f76415e7.jpeg)
+![image-20210818141840755](docker.assets/99d9b76427e49fc9ea24dba0f76415e7.jpeg)
 
 
 
@@ -212,7 +212,7 @@ bin  dev  etc  home  lib  lib64  lost+found  media  mnt  opt  proc  root  run  s
 [root@n1 ~]# docker run -it -v /home/centos1home:/home --name centos1 centos /bin/bash
 ```
 
-![image-20210820152938279](image-20210820152938279.png)
+![image-20210820152938279](docker.assets/image-20210820152938279.png)
 
 ## 实战-mysql
 
@@ -284,11 +284,11 @@ $ docker run -v test:/home:ro centos
 
 构建docker镜像
 
-![image-20210821115457304](image-20210821115457304.png)
+![image-20210821115457304](docker.assets/image-20210821115457304.png)
 
-![image-20210821115656150](image-20210821115656150.png)
+![image-20210821115656150](docker.assets/image-20210821115656150.png)
 
-![image-20210821115834318](image-20210821115834318.png)
+![image-20210821115834318](docker.assets/image-20210821115834318.png)
 
 ## 编写 Dockerfile
 
@@ -368,7 +368,7 @@ total 0
 
 ## 小结
 
-![image-20210824105218782](image-20210824105218782.png)
+![image-20210824105218782](docker.assets/image-20210824105218782.png)
 
 # Docker 网络
 
@@ -417,9 +417,9 @@ total 0
 
 **veth-pair：就是一对虚拟网络设备接口，一端连着协议，一端彼此相连**
 
-![image-20210824114014329](image-20210824114014329.png)
+![image-20210824114014329](docker.assets/image-20210824114014329.png)
 
-![image-20210824142344608](image-20210824142344608.png)
+![image-20210824142344608](docker.assets/image-20210824142344608.png)
 
 
 

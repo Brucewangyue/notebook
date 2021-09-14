@@ -4,6 +4,64 @@
 
 # docker 常用命令
 
+```sh
+# docker info
+
+Client:
+ Debug Mode: false
+
+Server:
+ Containers: 0
+  Running: 0
+  Paused: 0
+  Stopped: 0
+ Images: 0                           # 镜像个数
+ Server Version: 19.03.15          
+ Storage Driver: overlay2            # 存储驱动，运行 xfs_info / 命令，如果 ftype=1 才支持
+  Backing Filesystem: xfs
+  Supports d_type: true
+  Native Overlay Diff: true
+ Logging Driver: json-file           # json-file  表示日志在本地缓存，重启后清除
+ Cgroup Driver: systemd
+ Plugins:
+  Volume: local
+  Network: bridge host ipvlan macvlan null overlay
+  Log: awslogs fluentd gcplogs gelf journald json-file local logentries splunk syslog
+ Swarm: inactive                     # swarm 未启动
+ Runtimes: runc                      # 运行容器的标准
+ Default Runtime: runc
+ Init Binary: docker-init
+ containerd version: e25210fe30a0a703442421b0f60afac609f950a3
+ runc version: v1.0.1-0-g4144b63
+ init version: fec3683
+ Security Options:
+  seccomp
+   Profile: default
+ Kernel Version: 4.18.0-240.1.1.el8_3.x86_64
+ Operating System: CentOS Linux 8
+ OSType: linux
+ Architecture: x86_64
+ CPUs: 2
+ Total Memory: 1.748GiB
+ Name: k8s-master1
+ ID: 6T35:TC72:KPKK:LQYH:LPYQ:UXXS:3B7V:XSGR:JOKU:NUN2:GHHI:UAFC
+ Docker Root Dir: /var/lib/docker          # 生产中使用ssd，最好使用一个单独的硬盘挂载，不跟docker一起
+ Debug Mode: false
+ Registry: https://index.docker.io/v1/
+ Labels:
+ Experimental: false
+ Insecure Registries:
+  127.0.0.0/8
+ Registry Mirrors:
+  https://registry.aliyuncs.com/            # 生产中使用公司自己的镜像仓库
+ Live Restore Enabled: false                # 生产中需要打开，修改daemon.json重启服务时，不会把正在运行的容器重启
+
+```
+
+
+
+
+
 ## 帮助命令
 
 ```sh
@@ -282,13 +340,17 @@ $ docker run -v test:/home:ro centos
 
 # Dockerfile
 
-构建docker镜像
+## 介绍
+
+用于构建docker镜像
 
 ![image-20210821115457304](docker.assets/image-20210821115457304.png)
 
 ![image-20210821115656150](docker.assets/image-20210821115656150.png)
 
 ![image-20210821115834318](docker.assets/image-20210821115834318.png)
+
+
 
 ## 编写 Dockerfile
 
@@ -309,10 +371,14 @@ RUN yum -y install net-tools
 EXPOSE 80
 
 # 在容器实例化后运行的命令
+# *生产中一般不使用CMD命名，通过k8s动态直接传入或者读取配置文件传入
+# 如果是使用中括号命令，获取不到环境变量的值 如：CMD ［＂echo＂， ＂$MYPATH＂］
 CMD echo $MYPATH
 CMD echo "----end----"
 #CMD /bin/bash            
 ```
+
+
 
 ## CMD和ENTRYPOINT
 
@@ -320,7 +386,7 @@ CMD echo "----end----"
 
 ```sh
 FROM centos
-# 不能使用但引号
+# 不能使用单引号
 CMD ["ls","-a"]
 
 # 运行容器
@@ -340,6 +406,8 @@ total 0
 lrwxrwxrwx.   1 root root   7 Nov  3  2020 bin -> usr/bin
 drwxr-xr-x.   5 root root 340 Aug 21 14:08 dev
 ...
+
+# 如果 CMD 和 Entrypoint 同时存在 CMD 会成为 Entrypoint 的参数
 ```
 
 **ENTRYPOINT**
@@ -354,17 +422,93 @@ total 0
 -rwxr-xr-x.   1 root root   0 Aug 21 14:13 .dockerenv
 ```
 
-## 实战：Tomcat镜像
+
+
+## 小镜像制作
 
 ```sh
+# 小镜像: Alpine  busybox   空镜像scratch
+FROM alpine
+  
+RUN adduser -D dot
+RUN mkdir -p /opt/dot
 
+ENV test test_env
+
+ENTRYPOINT echo $test
 ```
+
+
+
+## 多阶段制作镜像
+
+普通应用镜像的制作
+
+```sh
+# 创建 go hello world 程序
+$ vim main.go
+
+package main
+import "fmt"
+
+func main(){
+    fmt.Printf("hello world\n")
+}
+
+# 制作镜像
+FROM golang:alpine3.14
+  
+WORKDIR /opt
+
+COPY main.go .
+
+RUN go build main.go
+
+CMD ./main
+
+
+# 构建镜像
+$ docker build -t go:my .
+
+# 运行镜像
+$ docker run go:my
+
+hello world
+```
+
+> **多阶段镜像制作**
+>
+> 上面虽然能制作好镜像，但是镜像大小达到了300M，在生产环境是不被允许的
+
+```dockerfile
+# 编译镜像
+FROM golang:alpine3.14
+  
+WORKDIR /opt
+
+COPY main.go .
+
+RUN go build main.go
+
+# 运行镜像
+FROM alpine
+
+COPY --from=0 /opt/main /
+
+CMD ./main
+```
+
+> 此时发现镜像的大小仅**7M**
+
+
 
 ## 发布镜像
 
 ```sh
 # docker login -u 123
 ```
+
+
 
 ## 小结
 
@@ -472,7 +616,7 @@ d62d9ab8b078   host      host      local
 # none 不配置网络
 ```
 
-#### 创建
+**创建**
 
 ```sh
 # docker network create --driver bridge --subnet 192.168.0.0/16 --gateway 192.168.0.1 mynet
@@ -522,7 +666,7 @@ d62d9ab8b078   host      host      local
 
 ```
 
-#### 使用
+**使用**
 
 ```sh
 # --net 等于 --network 
@@ -537,6 +681,8 @@ PING tomcat1 (192.168.0.2) 56(84) bytes of data.
 # 推荐使用，好处：
 	通过自定义网络docker帮我们维护好了对应的关系
 ```
+
+
 
 ## 网络互通
 

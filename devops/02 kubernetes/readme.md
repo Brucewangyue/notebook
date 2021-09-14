@@ -64,3 +64,30 @@
 
 
 
+**K8s组件**
+
+- Master：Control Plane，整个集群的控制中枢
+  - API Server：集群的大脑，各个模块之间信息交互都要经过 API Server ，同时也是集群管理的入口
+  - Controller Manager：集群的状态管理器，保证Pod或其他资源达到期望值，创建、更新或者删除它所管理的资源
+  - Scheduler：集群的调度中心，它会根据指定的一系列条件选择最佳的节点部署资源
+  - Etcd：键值数据库，性能强大，保存集群信息
+  - Kubelet：建议安装
+  - Kube-proxy：建议安装
+
+- Node：Worker
+  - Kubelet：负责监听节点上Pod的状态，同时负责上报节点和节点上面Pod的状态，负责与Master通信，并管理节点上面的Pod
+  - Kube-proxy：负责Pod之间的通信和负载均衡，将指定的流量分发到后端正确的机器上
+
+
+
+**其他组件**
+
+Calico：符合CNI标准的网络插件，给每个Pod生成唯一的IP地址，并且控制每个节点的路由表，管理集群节点的路由和网卡接口，保证Pod和Service的正常通信，支持做网络策略
+
+Cilium：以后可能会流行 eBPF，可以替代Kube-proxy
+
+CoreDNS：用于集群内部Service的解析，可以让Pod把Service的名称解析成IP地址，大概是用于解析资源的名称和IP的映射关系
+
+Docker：容器引擎，负载对容器的管理
+
+Metrics Server：收集集群指标信息

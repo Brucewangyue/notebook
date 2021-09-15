@@ -1,6 +1,6 @@
 # Pod
 
-### Pod介绍
+## Pod介绍
 
 K8s最小的操作单元，一个Pod可以包含一个或多个的容器
 
@@ -8,11 +8,11 @@ K8s最小的操作单元，一个Pod可以包含一个或多个的容器
 
 特殊的每个Pod都会带一个叫做**Pause**的容器，主要负责僵尸进程的回收管理，通过Pause容器可以让同一个Pod里面的多个容器共享存储，网络，PID，IPC等
 
-##### Pod结构
+### Pod结构
 
 
 
-##### Pod定义
+### Pod定义
 
 ```sh
 # 查看资源的定义项
@@ -30,9 +30,11 @@ kind: Pod               # 必选，资源类型 kubectl api-resources
 metadata:               # 必选，元素据，主要是资源标识的说明
   name: nginx           # 必须小写
   namespace: dev
-  label
+  labels:               # 标签，用于筛选
     k1: v1
     k2: v2
+  annotations:          # 注释
+    version: 1
 spec:                   # 必选，规格，详细说明
   containers:
   - name: nginx1
@@ -46,6 +48,9 @@ spec:                   # 必选，规格，详细说明
     ports:              # 容器需要暴露的端口列表
     -
     resources:          # 资源限制和资源请求的设置
+  initContainers:       # 容器启动之前执行的一些初始化操作
+  - command: ["sh","-c","echo asdsad"]
+    image: busybox
   nodeName:             # 指定node节点调度
   nodeSelector:         # node节点调度选择器
   hostNetwork:          # 是否使用主机网络模式，默认为false，如果设置true，使用宿主机网络
@@ -78,13 +83,16 @@ pod-base   1/2     NotReady   2          115s
 
 $ kubectl describe po pod-base -n dev
 # 发现busybox一直在重试，后续解决
+
+# 查看集群操作事件，可用来做监控
+$ kubectl get event
 ```
 
 
 
-### Pod配置
+## Pod配置
 
-#### 镜像拉取策略
+### 镜像拉取策略
 
 > imagePullPolicy
 
@@ -92,7 +100,7 @@ $ kubectl describe po pod-base -n dev
 - 如果镜像没有指定tag，默认策略为：Always
 - Nerver 每次都从镜像仓库拉取
 
-#### 启动命令
+### 启动命令
 
 ```sh
 # busybox 并不是一个程序，而是一个工具类，这个容器没有一个进程占据，它会自动关闭，解决办法是让它一直运行
@@ -123,7 +131,7 @@ $ kubectl exec -it pod-command -n dev -c busybox /bin/sh
 
 
 
-#### 环境变量
+### 环境变量
 
 ```sh
 spec:
@@ -137,7 +145,7 @@ spec:
 
 
 
-#### 端口设置
+### 端口设置
 
 ![image-20210903111931921](assets/image-20210903111931921.png)
 
@@ -169,7 +177,9 @@ spec:
 
 ![image-20210903111910911](assets/image-20210903111910911.png)
 
-#### 资源配额
+
+
+### 资源配额
 
 ![image-20210903114629307](assets/image-20210903114629307.png)
 
@@ -178,7 +188,7 @@ spec:
   containers:
     resources:
       limits:                  # 资源限制
-        cpu: "2"               # cpu核数限制
+        cpu: "2"               # cpu核数限制 2 = 2000m
         memory: "10Gi"         # 内存限制
       requests:                # 资源需求
         cpu: "1"               # 至少需要1核
@@ -187,7 +197,7 @@ spec:
 
 
 
-### Pod生命周期
+## Pod生命周期
 
 ![image-20210903151012559](assets/image-20210903151012559.png)
 
@@ -201,7 +211,7 @@ spec:
 
 
 
-#### 创建和终止
+### 创建和终止
 
 **创建**
 
@@ -213,7 +223,7 @@ spec:
 
 
 
-#### 初始化容器
+### 初始化容器
 
  ![image-20210903154946986](assets/image-20210903154946986.png)
 
@@ -255,23 +265,50 @@ ifconfig ens33:t1 192.168.109.202 netmask 255.255.0.0 up
 
 
 
-#### 钩子函数
+### 钩子函数
 
-- 容器启动后 post start：容器创建之后执行，如果失败了会重启容器
-- 容器终止前：容器终止之前执行，执行完成之后容器将成功终止，在其完成之前会阻塞删除容器的操作
+- 容器启动后 **postStart**：容器创建之后执行，如果失败了会重启容器
+  - **一般初始化工作会使用 initContainners 中做**
+  - 不能保证在 containners 的 `command `之前触发
+- 容器终止前 **preStop**：容器终止之前执行，执行完成之后容器将成功终止，在其完成之前会阻塞删除容器的操作
+  - 资源中有一个叫 `terminationGracePeriodSeconds`的配置，默认30s，是资源被删除时的一个宽限期
+  - 当一个容器被删除时的流程：
+    - K8s执行preStop指定的指令
+    - EndPoint删除该Pod的IP地址
+    - Pod的状态改为Terminating
+  - 使用场景：
+    - 如果项目使用了Eureka做注册中心，preStop先去请求Eureka接口，把自己的IP地址和端口进行下线，Eureka从注册表删除该应用的IP地址，通常还需要让容器先停留一段时间完成剩余工作
+
+
 
 钩子处理器支持三种方式定义动作：
 
-- Exec：在容器内执行命令
+- Exec：在容器内执行命令，如果返回值为0，表示健康（ **echo $?** 可以查看命令执行的结果值）
 
   - ```sh
-    lifecycle:
-      postStart:
-        exec:
-          command:
-          - cat
-          - /tmp/healthy
+    spec:
+      containers:
+      - lifecycle:
+          postStart:
+            exec:
+              command:
+              - cat
+              - /tmp/healthy
     ```
+    
+  - 示例：零宕机下线
+
+  - ```sh
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - lifecycle:
+          postStart:
+            exec:
+              command: ["sh","-c","slepp 35"]
+    ```
+
+  - 
 
 - TCPSocket：尝试访问指定的socket
 
@@ -282,7 +319,7 @@ ifconfig ens33:t1 192.168.109.202 netmask 255.255.0.0 up
           port: 8080
     ```
 
-- HTTPGet：访问一个地址
+- HTTPGet：访问一个地址，如果状态码在200~400，表示健康
 
   - ```sh
     lifecycle:
@@ -310,22 +347,60 @@ spec:
 
 
 
-#### 容器探测
+### 容器探测
 
-- 存活性探针 liveness probes：用于检测当前实例是否处理正常运行状态，如果不是，k8s会重启
-- 就绪性探针 readiness probes：用于检测应用实例当前是否可以接受请求，如果不能，k8s不会转发流量
+零宕机应用发布
+
+- 存活性探针 livenessProbe：用于检测当前实例是否处理正常运行状态，如果不是，容器将被重启
+- 就绪性探针 readinessProbe：用于检测应用实例当前是否可以接受请求，如果不能，k8s不会转发流量
+- startupProbe：1.16版本后添加，用于检测容器内进程是否完全启动，优先于其他的探针执行，直到它成功为止
+
+#### livenessProbe
+
+> **说明：** livenessProbe不等待readinessProbe成功。 如果要在执livenessProbe之前等待，应该使用 initialDelaySeconds 或 startupProbe。
+
+#### readinessProbe
+
+有时候，应用程序会暂时性的不能提供通信服务。 例如，应用程序在启动时可能需要加载很大的数据或配置文件，或是启动后要依赖等待外部服务。 在这种情况下，既不想杀死应用程序，也不想给它发送请求。 Kubernetes 提供了就绪探测器来发现并缓解这些情况。 容器所在 Pod 上报还未就绪的信息，并且不接受通过 Kubernetes Service 的流量。
+
+> **说明：** 就绪探测器在容器的整个生命周期中保持运行状态。
+
+#### startupProbe
+
+一般用于启动过程比较长，启动时间不确定的应用检测，用它加上livenessProbe来解决此类问题，如果单独使用livenessProbe，那么要增加失败次数或者检测间隔时间，此时如果容器在运行期间挂了，那么会延长容器的故障发现时长。为了解决此类问题，可以配合startupProbe，在startupProbe中增加失败次数或者检测间隔时间，只有启动的时候执行一次，后续存活性探测不受影响
+
+[startupProbe](https://zhuanlan.zhihu.com/p/121596793?utm_source=wechat_timeline)
+
+```yaml
+# startupProbe  启动检查
+----------------------------------
+startupProbe:                     #健康检查方式：[readinessProbe,livenessProbe,StartupProbe]
+  failureThreshold: 3             #检测失败3次表示未就绪
+  httpGet:                        #请求方式
+    path: /ready                  #请求路径
+    port: 8182                    #请求端口
+    scheme: HTTP                  #请求协议
+  periodSeconds: 10               #检测间隔
+  successThreshold: 1             #检查成功为2次表示就绪
+  timeoutSeconds: 1               #检测失败1次表示未就绪
+----------------------------------
+```
 
 
 
-#### 重启策略
+
+
+### 重启策略
 
 
 
 
 
-### Pod调度
+## Pod调度
 
-#### 定向调度
+
+
+### 定向调度
 
 配置定向调度，会跳过schedule的调度逻辑，**如果配置的调度节点不存在，则pod无法启动**
 
@@ -344,7 +419,7 @@ spec:
 
 
 
-#### 亲和性调度
+### 亲和性调度
 
 - nodeAffinity：以node为目标，在亲和度大的node上调度pod
 - podAffinity：以pod为目标，在亲和度大的pod的node上调度pod
@@ -430,7 +505,7 @@ spec:
 
 
 
-#### 污点taint调度
+### 污点taint调度
 
 ![image-20210904113010897](assets/image-20210904113010897.png)
 
@@ -454,7 +529,9 @@ Taints:             node-role.kubernetes.io/master:NoSchedule
 # master节点默认是NoSchedule
 ```
 
-#### 容忍
+
+
+### 容忍
 
 ![image-20210904114317768](assets/image-20210904114317768.png)
 

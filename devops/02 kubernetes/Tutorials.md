@@ -122,12 +122,14 @@ spec:
 
 **标签选择器 lable selector**
 
+[api文档](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/)
+
 - 基于等式
   - name=value
   - name!=value
 - 基于集合
   - name in (v1,v2)
-  - name not in (v1,v2)
+  - name notin (v1,v2)
 
 **演练**
 
@@ -174,8 +176,12 @@ $ kubectl get po -n dev -l "env=dev"
 NAME       READY   STATUS    RESTARTS   AGE
 nginxpod   1/1     Running   0          7m46s
 
+# 多条件筛选
+$ kubectl get po -n dev -l "env in (dev,test)"
+
+
 # 删除label
-$ kubectl label po nginx1 -n dev run-
+$ kubectl label po nginx1 run- -n dev
 
 pod/nginx1 labeled
 ```
@@ -247,10 +253,10 @@ spec:
     spec:
       containers:
       - name: nginx-containers
-        image: nginx
-        ports:
-        - containerPort: 80
-          protocol: TCP
+        image: nginx:latest
+        #ports:
+        #- containerPort: 80
+        #  protocol: TCP
 -----------------------------
 ```
 

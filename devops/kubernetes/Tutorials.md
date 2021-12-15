@@ -359,3 +359,243 @@ spec:
 -----------------------------
 ```
 
+
+
+
+
+
+
+## 部署Redis
+
+
+
+a) 创建redis配置文件
+
+```sh
+# 将 https://raw.githubusercontent.com/redis/redis/6.0/redis.conf 内容保存到redis.conf
+# 不显示注释和空行
+$ grep -v "#" redis.conf | grep -v "^$"
+
+# 将没有注释和空行的内容覆盖redis.conf
+# 修改redis.conf
+$ vim redis.conf
+
+bind 0.0.0.0
+dir /data
+logfile "/temp/redis.log"
+```
+
+b) 将redis配置文件存放在configMap
+
+```sh
+$ kubectl create cm redis-single-conf --from-file redis.conf
+
+# 查看 
+$ kubectl edit cm redis-single-conf
+
+apiVersion: v1
+data:
+  # 类文件键 ，被挂载后 redis.conf 会作为文件名
+  redis.conf: | 
+    bind 0.0.0.0
+    protected-mode yes
+    port 6379
+    tcp-backlog 511
+    timeout 0
+    tcp-keepalive 300
+    daemonize no
+    supervised no
+    pidfile /var/run/redis_6379.pid
+    loglevel notice
+    logfile "/temp/redis.log"
+    databases 16
+    always-show-logo yes
+    save 900 1
+    save 300 10
+    save 60 10000
+    stop-writes-on-bgsave-error yes
+    rdbcompression yes
+    rdbchecksum yes
+    dbfilename dump.rdb
+    rdb-del-sync-files no
+    dir /data
+    replica-serve-stale-data yes
+    replica-read-only yes
+    repl-diskless-sync no
+    repl-diskless-sync-delay 5
+    repl-diskless-load disabled
+    repl-disable-tcp-nodelay no
+    replica-priority 100
+    acllog-max-len 128
+```
+
+c) 创建deployment资源清单
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-single
+  labels:
+    app: redis-single
+spec:
+  replicas: 1                  # 副本数  redis 是有状态的服务，单纯增加副本数没用
+  selector:                    # 关联pod
+    matchLabels:
+      app: redis-single
+  template:
+    metadata:
+      labels:
+        app: redis-single          # 这里绑定了控制器
+    spec:
+      containers:
+      - name: redis-single
+        image: redis:6.0.15
+        command: 
+        - sh
+        - -c
+        - redis-server "/mnt/redis.conf"
+        ports:
+        - containerPort: 6379     # 暴露端口
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 100m
+            memory: 339Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
+        readinessProbe:             # 探针
+          failureThreshold: 2
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          tcpSocket:
+            port: 6379
+          timeoutSeconds: 5
+        volumeMounts:
+        - name: redis-config
+          mountPath: "/mnt"       # 挂载配置文件到指定目录
+          readOnly: true
+      volumes:                    # 通过configMap分离配置内容
+      - name: redis-config
+        configMap:
+          name: redis-single-conf
+      tolerations:
+      - effect: NoExecute
+        key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        tolerationSeconds: 30      # 当pod部署的node匹配到此污点后，等待30秒后将Pod转移（故障转移）
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 30
+```
+
+d) 创建service资源清单
+
+```yaml
+
+```
+
+
+
+
+
+## 部署Redis集群
+
+​	由于Redis集群的部署比较复杂，所以使用[operator](https://github.com/operator-framework/awesome-operators)来简化部署，并且简化了后期的扩容。
+
+​	operator工具是由coreos开源
+
+
+
+a) 部署redis operator
+
+​	选择国内公司写的 [redis operator](https://github.com/ucloud/redis-cluster-operator)，按照官方文档部署
+
+
+
+b) 部署redis集群
+
+​	按照官方文档部署
+
+
+
+
+
+## 部署RabbitMQ集群
+
+
+
+
+
+## 部署Helm
+
+a) 安装Helm
+
+b) 添加Bitnami仓库
+
+​	[官方文档](https://docs.bitnami.com/tutorials/deploy-apache-airflow-kubernetes-helm/)
+
+```sh
+# 添加仓库
+$ helm repo add bitnami https://charts.bitnami.com/bitnami
+
+# 查看结果
+$ helm repo list
+
+NAME         	URL                                       
+ingress-nginx	https://kubernetes.github.io/ingress-nginx
+bitnami      	https://charts.bitnami.com/bitnami
+```
+
+c) 学习helm
+
+```sh
+# 查询插件
+$ helm search repo zookeeper 
+
+# 创建插件
+$ helm create test
+
+# 插件目录结构
+$ cd test
+$ tree
+.
+├── charts          # 依赖文件
+├── Chart.yaml      # 版本信息
+├── templates       # 配置模板，模板可以读取到 values.yaml 中定义的值
+│   ├── deployment.yaml 
+│   ├── _helpers.tpl    # 命名模板，存放通用模板段落或者参数
+│   ├── hpa.yaml
+│   ├── ingress.yaml
+│   ├── NOTES.txt      # 部署chart后的信息提示说明
+│   ├── serviceaccount.yaml
+│   ├── service.yaml
+│   └── tests          # 如果部署的是web，可以做个连接看是否部署正常
+│       └── test-connection.yaml
+└── values.yaml      # 配置全局变量或者一些参数
+
+
+```
+
+
+
+
+
+## 部署EFK
+
+
+
+
+
+FIS需求数量：4件
+
+FIS运维数量：4件
+
+主要需求描述：
+1、报表模块功能迭代（配置化、动态渲染、界面）：完成度：100%，工时：10个工作日
+
+2、讨论科技信息化部门建设方案 4个工作日
+

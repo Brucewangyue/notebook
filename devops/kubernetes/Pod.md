@@ -269,7 +269,7 @@ ifconfig ens33:t1 192.168.109.202 netmask 255.255.0.0 up
 
 - 容器启动后 **postStart**：容器创建之后执行，如果失败了会重启容器
   - **一般初始化工作会使用 initContainners 中做**
-  - 不能保证在 containners 的 `command `之前触发
+  - 不能保证在 containners 的 `CMD` 或`EntryPoint`之前触发
 - 容器终止前 **preStop**：容器终止之前执行，执行完成之后容器将成功终止，在其完成之前会阻塞删除容器的操作
   - 资源中有一个叫 `terminationGracePeriodSeconds`的配置，默认30s，是资源被删除时的一个宽限期
   - 当一个容器被删除时的流程：
@@ -502,6 +502,20 @@ spec:
 **podAntiAffinity**
 
 配置方式同podAffinity
+
+
+
+**拓朴域 topologKey**
+
+​	拓扑域使亲和度可以达到更细粒度的控制，不同的node中label的key和value相同表示为同一拓扑域，如：area=beijing
+
+
+
+测试：利用拓扑域实现多地多机房部署
+
+
+
+
 
 
 

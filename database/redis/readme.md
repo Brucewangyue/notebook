@@ -70,51 +70,94 @@ redis与内核之间使用的是epoll(多路复用)技术
 
 
 
-	## 安装
+## Redis 和数据库的区别
+
+​	1、redis key 可以有有效期
+
+​	**面试题：如果一个设置了有过期时间的Key，用 set 修改key的值后，会剔除过期时间**
+
+​	2、内存有限，随着访问变化，应该淘汰掉冷数据
+
+​	**面试题：redis提供了什么淘汰算法？参考《回售策略》**
+
+
+
+
+
+
+
+## 安装
 
 [官网](https://redis.io/)
 
 ### 一：源码安装
 
-centos 6.x，redis 官网5.x
+​	centos 7.x，redis 官网6.x
 
 ```sh
+# 全程按照redis源码包内的readme.md来安装
 yum install wget
 cd ~
 mkdir soft
 cd soft
-wget    http://download.redis.io/releases/redis-5.0.5.tar.gz
+wget http://download.redis.io/releases/redis-6.0.6.tar.gz
 tar xf    redis...tar.gz
 cd redis-src
 
 #（看README.md）
 
 # make  linux 编译工具，需要 makefile 才知道如何编译
-yum install  gcc  
-make distclean
-make
-cd src   ....生成了可执行程序
+yum install gcc systemd-devel -y
+make USE_SYSTEMD=yes
+# 编译成功后，在src目录生成了可执行程序 redis-server redis-cli
 
-# 服务化
-cd ..
-make install PREFIX=/opt/redis5
+# 将redis程序迁出到指定目录
+# PREFIX 指定安装目录，默认：/usr/local/bin （看Makefile可知）
+make install PREFIX=/usr/local/redis/bin
 
-# 添加环境变量
+# 添加环境变量，后续的脚本文件需要知道redis程序的位置
 vi /etc/profile
-...   export  REDIS_HOME=/opt/redis5
-...   export PATH=$PATH:$REDIS_HOME/bin
+export REDIS_HOME=/opt/redis
+export PATH=$PATH:$REDIS_HOME/bin
 
 source /etc/profile
 
+# 安装服务
 cd utils
 ./install_server.sh  （可以执行一次或多次）    
 	a)  一个物理机中可以有多个redis实例（进程），通过port区分
 	b)  可执行程序就一份在目录，但是内存中未来的多个实例需要各自的配置文件，持久化目录等资源
 	c)  service   redis_6379  start/stop/stauts     >   linux   /etc/init.d/****
 	d)脚本还会帮你启动！17,ps -fe |  grep redis  
+	
+# 安装可能出现以下问题
+# Welcome to the redis service installer
+# This script will help you easily set up a running redis server
+# This systems seems to use systemd.
+# Please take a look at the provided example service unit files in this directory, and adapt and install them. Sorry!
+
+# 修改install_server.sh 
+
+#bail if this system is managed by systemd
+#_pid_1_exe="$(readlink -f /proc/1/exe)"
+#if [ "${_pid_1_exe##*/}" = systemd ]
+#then
+#       echo "This systems seems to use systemd."
+#       echo "Please take a look at the provided example service unit files in this directory, and adapt and install them. Sorry!"
+#       exit 1
+#fi
 ```
 
 ### 二：docker安装
+
+```sh
+docker run -d -p 6379:6379 --name redis1 redis
+
+# 自定义配置文件，要将daemonize 设置为 no
+docker run -d -p 63791:6379 -v /root/redisConf:/usr/local/etc/redis --name redis11 redis redis-server /usr/local/etc/redis/redis.conf
+```
+
+
 
 ### 三：k8s安装
 
@@ -168,8 +211,6 @@ get k3
 ​	常识：字符集：ascii ，其他一般叫扩展字符集？？ todo 补充 ascii知识
 
 **结论：客户端需要沟通好使用相同的编码，否则有可能出现乱码**
-
-
 
 
 
@@ -425,6 +466,47 @@ BITCOUNT  destkey  0 -1 
 
 
 
+## 回收策略
+
+​	配置文件中的配置项
+
+ - `maxmemory <bytes>`: 最大可用内存，建议1G~10G
+
+ - `maxmemory-policy noeviction`  :
+
+   	-	*volatile-lru*：使用近似的LRU驱逐，只使用有过期设置的键，常用
+      	-	*allkeys-lru*：使用近似LRU驱逐任意键
+   	-	*volatile-lfu*：使用近似的LFU驱逐，只使用有过期设置的键
+   	-	*allkeys-lfu*：使用近似LFU驱逐任意键
+   	-	*volatile-random*：移除一个有过期设置的随机键
+   	-	*allkeys-random*：移除一个随机的键，任何键
+   	-	*volatile-ttl*：删除与过期时间最近的密钥(次要TTL)
+   	-	*noeviction*：不要驱逐任何东西，只是在写操作时返回一个错误，只适合拿redis做为数据库时
+
+   
+
+**Redis如何淘汰过期的keys**
+
+Redis keys过期有两种方式：被动和主动方式。
+
+当一些客户端尝试访问它时，key会被发现并主动的过期。
+
+当然，这样是不够的，因为有些过期的keys，永远不会访问他们。 无论如何，这些keys应该过期，所以定时随机测试设置keys的过期时间。所有这些过期的keys将会从密钥空间删除。
+
+具体就是Redis每秒10次做的事情：
+
+1. 测试随机的20个keys进行相关过期检测。
+2. 删除所有已经过期的keys。
+3. 如果有多于25%的keys过期，重复步奏1.
+
+这是一个平凡的概率算法，基本上的假设是，我们的样本是这个密钥控件，并且我们不断重复过期检测，直到过期的keys的百分百低于25%,这意味着，在任何给定的时刻，最多会清除1/4的过期keys。
+
+
+
+​	可以看出Redis是以性能为大前提，通过平衡算法，牺牲一些内存，保住性能
+
+
+
 ## 高级扩展
 
 
@@ -435,9 +517,23 @@ BITCOUNT  destkey  0 -1 
 
 #### 布隆过滤器 
 
+[官方文档](https://github.com/RedisBloom/RedisBloom)
+
 ​	解决缓存穿透问题，布隆过滤器首先知道你有啥，没有的也不去查询数据库。那么如果数据库的数据特别多，布隆过滤器要加载的数据就会很多，它是如何用小空间存大数据的？
 
-[官方文档](https://github.com/RedisBloom/RedisBloom)
+​	布隆过滤器不是百分百阻挡，有概率解决问题，失败的概率<1%
+
+​	对于穿透了redis，然后数据库中也没查询到，这时可以往redis中加一条该数据，value 是空
+
+![image-20211217100741368](assets/image-20211217100741368.png)
+
+​	除了布隆过滤器，还有 `counting bloom` `cukcoo`(布谷鸟)
+
+**双写**
+
+​	当数据库新增了元素，此时还要将元素添加到布隆
+
+
 
 ​	通过源码安装
 
@@ -454,9 +550,175 @@ make
 
 # 拷贝编译好的.so后缀的程序到/opt/redis/modules 
 
-# 启动
+# 启动   module的加载要写全路径
 redis-server --loadmodule /opt/redis/modules/redisbloom.so redis.conf
+
+# 测试
+redis-cli
+
+# 真实场景是，写程序通过调用以下命令来添加数据标识
+bf.add ooxx abc
+
+# 通过这个命令可以判是否存在，以此来确定数据库中是否有该数据标识
+bf.exists abc
+# 结果是1 表示数据库有
 ```
+
+
+
+## 高可用
+
+### 数据持久化
+
+​	redis中 rdb和aof可以同时开，不过恢复的时候只会用aof恢复，因为aof数据相对完整
+
+#### **一：快照/副本（RDB）**
+
+​		假如有个需求要对当前时间之前（如8:00）的数据做快照，有一个Key，8点前值是 a，在快照的过程中被修改成了 z，那么这个快照该保存哪个数据？如何能保存？
+
+**插入一个常识：linux的父子进程**
+
+- 父进程的数据默认子进程看不到
+
+- 父进程可以让子进程看到数据，通过export
+
+- 子进程中修改父进程的数据，不会破坏父进程原始数据
+
+- 父进程export的数据修改也不会破坏子进程
+
+- 验证以上观点：
+
+  ```sh
+  # 管道
+  num = 0;
+  ((num++))
+  echo $num
+  
+  ((num++)) | more
+  echo $num
+  
+  echo $$ | more
+  echo $...PID | more
+  
+  # test.sh 一个脚本，在一个进程中测试num的改变
+  #!/bin/bash
+  
+  echo $num
+  num = 999
+  
+  sleep 20
+  echo $num
+  
+  # 设置脚本
+  chmod +x ./test.sh
+  
+  # 父进程调用脚本
+  ```
+
+
+
+​		根据以上的常识，是不是redis在需要快照的时候，创建一个子进程（内核函数fork()），那么是不是就自动的有了那个时刻的快照？假如redis此时内存为10G，内存空间够不够，创建子进程的速度是什么程度？
+
+​		如图8:00时刻开始做快照，8:10修改了值
+
+![image-20211217153040564](assets/image-20211217153040564.png)
+
+
+
+##### 使用
+
+​		配置文件中的*SNAPSHOTTING*
+
+**save指令**：
+
+​		将当前的所有内存中的数据写到rdb文件，阻塞，使用场景少，适合停服维护
+
+**bqsave指令**
+
+​		常用，非阻塞，通过fork()，通过配置文件可以指定规则
+
+```sh
+# 查看rdb文件
+redis-check-rdb *.rdb
+```
+
+
+
+##### 弊端
+
+​		1、不支持拉链，只有一个dump.rdb，需要人为手动移动备份
+
+​		2、修饰数据，窗口数据容易丢失
+
+##### 优点
+
+​		类似于java序列化、恢复速度相对快
+
+
+
+#### **二：日志（AOF）**
+
+​		AOF（RDB全量+AOF增量），redis所有写操作记录到文件中
+
+​		如果有一个redis运行了10年，然后挂了，AOF多大？恢复要多久？如果这10年就运行两个命令 一个设置key，一个删除key，那么AOF文件多大？有什么方案可以让AOF日志文件足够小？
+
+​		凡是日志系统都有这个问题HDFS、FSIMAGE+EDITS.log：让日志只记录增量，合并的过程
+
+​		**redis 4.0版本后，重写（BGREWRITEAOF）将内存中的老数据RDB到aof文件的开头，将新的增量的以指令的方式Append到aof文件**
+
+![image-20211217165903387](assets/image-20211217165903387.png)
+
+##### 使用
+
+​		配置文件中的*APPEND ONLY MODE* 
+
+- appendonly：是否开启AOP：yes
+- appendfilename：aof文件名：appendonly.aof 
+- appendfsyn：3个写级别
+  - *no* ：速度最快，不调用IO流的flush，这个flush会让内核将缓冲区的剩余数据立即写到磁盘上，这里表示不会flush缓冲区，内核的该IO流的缓冲区什么时候满了才刷到磁盘上，有可能会丢失一个缓冲区的数据
+  - *always*：速度最慢，每一条增量数据都立即flush到磁盘上，最多丢失一条的数据
+  - everysec ：每秒，最多丢失差不多一个buffer缓冲区的大小
+- aof-use-rdb-preamble：是否结合rdb
+- auto-aof-rewrite-percentage：自动重写配置：100
+- auto-aof-rewrite-min-size：自动重写配置：64mb
+
+​		redis 启动的时候就会创建空的aof文件，没有rdb文件，rdb需要满足条件才会创建
+
+​		aof文件内容：
+
+![image-20211217164751281](assets/image-20211217164751281.png)
+
+##### 弊端
+
+​		体量无限变大
+
+​		恢复慢（重放）
+
+##### 优点
+
+​		丢失数据少
+
+
+
+### 集群
+
+​		单机、单节点、但实例的问题：
+
+- 1、单点故障
+- 2、容量有限
+- 3、访问计算压力
+
+![image-20211218100127394](assets/image-20211218100127394.png)
+
+​		X轴可以解决单点故障，但带来了新的问题：如何保证数据一致性？
+
+​		方案一：当写操作到达，所有节点阻塞写入，直到数据全部一致，强一致性。
+
+​		**反问自己：为什么要一变多？为了可用性，而强一致性破坏了可用性，所以不可取**
+
+​		方案二：当写操作到达，通过异步让其他节点写入，容忍数据丢失一部分
+
+
 
 
 
@@ -464,7 +726,11 @@ redis-server --loadmodule /opt/redis/modules/redisbloom.so redis.conf
 
 ### 穿透
 
-​	一般情况，用户首先查询redis，redis没有查询数据库。但是会存在一个问题，就是用户查询的这条数据数据库也没有，那么用户端就会不停的访问数据库，让数据库造成无用的性能损耗
+​	一般情况，先查询redis，redis没有就查数据库。但是会存在一个问题，就是查询的这条数据数据库也没有，客户端如果一直查询redis没有的数据，那么就会一直访问数据库，让数据库造成无用的性能损耗
+
+​	实现方式有：
+
+![image-20211217101042116](assets/image-20211217101042116.png)
 
 ### 雪崩
 

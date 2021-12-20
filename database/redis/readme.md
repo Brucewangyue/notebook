@@ -168,6 +168,12 @@ docker run -d -p 63791:6379 -v /root/redisConf:/usr/local/etc/redis --name redis
 
 [命令大全](http://doc.redisfans.com/)
 
+**关闭服务**
+
+```sh
+redis-cli -p 6379 shutdown
+```
+
 ### FLUSHDB
 
 ​	清空当前数据库中的所有 key。生产环境要禁用（改名）
@@ -654,7 +660,7 @@ redis-check-rdb *.rdb
 
 
 
-**二：日志（AOF）**
+#### **二：日志（AOF）**
 
 ​		AOF（RDB全量+AOF增量），redis所有写操作记录到文件中
 
@@ -708,11 +714,231 @@ redis-check-rdb *.rdb
 
 X轴可以解决单点故障，但带来了新的问题：如何保证数据一致性？
 
-1. 方案一：当写操作到达，所有节点阻塞写入，直到数据全部一致，强一致性。
+1. 方案一：当写操作到达，所有节点阻塞写入，直到数据全部一致，**强一致性**。
 
    **反问自己：为什么要一变多？为了可用性，而强一致性破坏了可用性，所以不可取**
 
-2. 方案二：当写操作到达，通过异步让其他节点写入，容忍数据丢失一部分
+2. 方案二：当写操作到达，通过异步让其他节点写入，容忍数据丢失一部分，**最终一致性**
+
+   **Redis使用默认的异步复制，其特点是低延迟和高性能，是绝大多数 Redis 用例的自然复制模式**
+
+1. **主从复制**
+
+   - 从节点不能写，只能读**（可以配置为支持读写）**
+   - 从节点跟随主节点前，会把自己的数据先清除
+   - 主节点知道自己的从节点有哪些
+   - **主节点挂了，从节点不会自动切换为主节点，需要人工介入**
+
+   Docker搭建
+
+   ```sh
+   # 配置文件
+   bind 0.0.0.0
+   port 6379
+   daemonize yes
+   dir /data
+   logfile "/data"
+   
+   
+   # 创建网络，让这几个容器能互相访问
+   docker network create --subnet 172.38.0.0/16  redisnet
+   
+   # 运行3个redis容器
+   # 第一台主
+   docker run -d -v /root/conf-redis/replicate:/usr/local/etc/redis --net redisnet --name redis-m1 redis redis-server /usr/local/etc/redis/redis.conf
+   
+   # 第二台从，直接运行的时候就追随主
+   docker run -d -v /root/conf-redis/replicate:/usr/local/etc/redis --net redisnet --name redis-s1 redis redis-server /usr/local/etc/redis/redis.conf  --replicaof redis-m1 6379
+   
+   # 第三台从，进入容器追随主
+   docker run -d -v /root/conf-redis/replicate:/usr/local/etc/redis --net redisnet --name redis-s2 redis redis-server /usr/local/etc/redis/redis.conf
+   
+   docker exec -it redis-s2 /bin/bash
+   redis-cli
+   set k1 1
+   # 通过命令追随
+   REPLICAOF redis-m1 6379
+   
+   # 追随完成后发现k1没了
+   # 查看从2的日志
+   Before turning into a replica, using my own master parameters to synthesize a cached master: I may be able to synchronize with the new master with just a partial transfer.
+   Connecting to MASTER redis-m1:6379
+   MASTER <-> REPLICA sync started
+   ...
+   receiving 189 bytes from master to disk
+   Flushing old data
+   Loading DB in memory
+   ...
+   # 从以上日志得知，追随主节点，会把自己节点内原有的数据清掉
+   
+   
+   # 查看主的日志
+   Replica 172.38.0.3:6379 asks for synchronization
+   Full resync requested by replica 172.38.0.3:6379
+   Replication backlog created, my new replication IDs are '9def6cd5f7f3825efb71028a135ef549a85229da' and '0000000000000000000000000000000000000000'
+   Starting BGSAVE for SYNC with target: disk
+   Background saving started by pid 18
+   DB saved on disk
+   RDB: 2 MB of memory used by copy-on-write
+   Background saving terminated with success
+   Synchronization with replica 172.38.0.3:6379 succeeded
+   
+   # 从以上得知，主节点是知道自己的从节点有哪些
+   
+   # 此时如果主节点挂了
+   docker stop redis-m1
+   
+   # 查看日志发现两个从节点并不会自主选举，而是在等主节点恢复
+   # 在从1上手动切换为主节点
+   REPLICAOF NO ONE
+   
+   # 在从2上手动重新跟随
+   REPLICAOF redis-s2 6379
+   ```
+
+2. **主备搭建**
+
+   1. 
+
+3. **哨兵**
+
+   哨兵就是用来解决，主从复制中需要人工介入的问题，一套哨兵可以监控多套主从复制集群（有点像keepalive）
+
+   - **监控（Monitoring）**：会不断地检查你的主服务器和从服务器是否运作正常
+   - **提醒（Notification）**：当被监控的某个 Redis 服务器出现问题时， Sentinel 可以通过 API 向管理员或者其他应用程序发送通知
+   - **自动故障迁移（Automatic failover）**：当一个主服务器不能正常工作时， Sentinel 会开始一次自动故障迁移操作， 它会将失效主服务器的其中一个从服务器升级为新的主服务器， 并让失效主服务器的其他从服务器改为复制新的主服务器； 当客户端试图连接失效的主服务器时， 集群也会向客户端返回新主服务器的地址， 使得集群可以使用新主服务器代替失效服务器
+
+   
+
+   启动服务：
+
+   ```sh
+   # 最后的2表示判断失效2个sentinel同意（只要同意 Sentinel 的数量不达标，自动故障迁移就不会执行）
+   # mymaster 用来区分不同的redis监控集群
+   # 之所以哨兵的配置只需要一个redis主节点的地址端口就可以，是因为主节点记录了所有其他从节点的信息
+   
+   # 创建最简单的配置文件 sentinel.conf（源码中有默认配置文件）
+   port 16379
+   sentinel monitor mymaster 127.0.0.1 6379 2
+   
+   # 以下是扩展配置（可选）
+   # Sentinel 认为服务器已经断线所需的毫秒数
+   sentinel down-after-milliseconds mymaster 60000
+   sentinel failover-timeout mymaster 180000
+   # 指定了在执行故障转移时， 最多可以有多少个从服务器同时对新的主服务器进行同步， 这个数字越小， 完成故障转移所需的时间就越长
+   sentinel parallel-syncs mymaster 1
+   
+   sentinel monitor resque 192.168.1.3 6380 4
+   sentinel down-after-milliseconds resque 10000
+   sentinel failover-timeout resque 180000
+   sentinel parallel-syncs resque 5
+   
+   # 启动哨兵
+   redis-server /path/to/sentinel.conf --sentinel
+   
+   # 哨兵启动以后会重写配置文件，补全集群的节点信息
+   ```
+
+   
+
+   **哨兵之间是如何通信的？**
+
+   是通过在主节点开启了发布订阅，
+
+   ```sh
+   在主节点用命令可以看通信内容
+   PSUBSCRIBE *
+   ```
+
+   ![image-20211220144129409](assets/image-20211220144129409.png)
+
+   
+
+4. **数据拆分**
+
+   模型
+
+   - **1、modula** 
+
+     ![image-20211220152817714](assets/image-20211220152817714.png)
+
+     - 优点：客户端容易实现，适合中小应用
+     - 弊端：当增加节点的时候，需要全局洗牌，把数据全部取出来重新取模分配
+
+   - **2、随机**
+
+     ![image-20211220152806571](assets/image-20211220152806571.png)
+
+     - 优点：当redis有多个节点，并且key是list类型，那么就像kafka
+
+   - **3、ketama 一致性哈希算法**（一个无论多长的字符串，经过算法得出的结果长度等宽）
+
+     **只用在缓存**
+
+     ![image-20211220152321152](assets/image-20211220152321152.png)
+
+     ![image-20211220152701708](assets/image-20211220152701708.png)
+
+     - 优点：不需要全局洗牌
+
+     - 缺点：当刚开始增加节点的时候会造成小部分数据不能命中，因为环形 被分割了，会阻挡后面切环点的数据查询被阻挡，此时会击穿缓存，把压力给到后端数据库，等重新查询完后再放入新节点重新缓存
+
+       缺点的解决方案：
+
+       - 连续查询从两个redis节点的查询，第一个节点查询不到就到第二个节点查询，然后再缓存第一个节点
+
+   - **4、代理 twemproxy、predixy**
+
+     以上都是基于客户端的实现，twemproxy 是基于服务器的实现
+
+     使用了服务器redis代理，客户端就可以屏蔽redis集群的复杂性，只需要知道一个代理服务器的IP地址，由于代理面向的是redis集群，某些redis 命令不支持：keys * 、事务
+
+     ![image-20211220155210876](assets/image-20211220155210876.png)
+
+     - **twemproxy**
+
+       - 安装 [官方](https://github.com/twitter/twemproxy)
+       -  
+
+     - **predixy**
+
+       解决存在哨兵集群时的redis集群对外只暴露一个端口
+
+       - 安装 [官方](https://github.com/joyieldInc/predixy)
+
+       - **HashTag**
+
+         指定k1到一个固定的节点
+
+         ```sh
+         set {oo}k1 sda
+         set {oo}k2 addasd
+         ```
+
+         
+
+   - **5、redis 分片 (集群 无主模型)**
+
+     module模型的问题就是取模的问题，那么如果我们一开始就把模数设的特别大，是不是就不会出现全局洗牌了
+
+     ![image-20211220160903813](assets/image-20211220160903813.png)
+
+     
+
+     **实操**
+
+     [文档](http://redis.cn/topics/cluster-tutorial.html)
+
+     ```sh
+     
+     
+     # 这里可以随意连接到集群的任意一个节点，-c表示获取会自动跳转到存放这个key的节点
+     redis-cli -c -p 30001
+     ```
+
+     
+
+5. 
 
 
 

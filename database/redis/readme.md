@@ -483,7 +483,7 @@ skip list 跳表  todo 深入学习
               	-	*volatile-lfu*：使用近似的LFU驱逐，只使用有过期设置的键
             	-	*allkeys-lfu*：使用近似LFU驱逐任意键
             	-	*volatile-random*：移除一个有过期设置的随机键
-   	-	*allkeys-random*：移除一个随机的键，任何键
+            	-	*allkeys-random*：移除一个随机的键，任何键
    	-	*volatile-ttl*：删除与过期时间最近的密钥(次要TTL)
    	-	*noeviction*：不要驱逐任何东西，只是在写操作时返回一个错误，只适合拿redis做为数据库时
 
@@ -722,9 +722,11 @@ X轴可以解决单点故障，但带来了新的问题：如何保证数据一�
 
    **Redis使用默认的异步复制，其特点是低延迟和高性能，是绝大多数 Redis 用例的自然复制模式**
 
+
+
 1. **主从复制**
 
-   - 从节点不能写，只能读**（可以配置为支持读写）**
+   - 从节点不能写，只能读 **（可以配置为支持读写）**
    - 从节点跟随主节点前，会把自己的数据先清除
    - 主节点知道自己的从节点有哪些
    - **主节点挂了，从节点不会自动切换为主节点，需要人工介入**
@@ -741,14 +743,14 @@ X轴可以解决单点故障，但带来了新的问题：如何保证数据一�
    
    
    # 创建网络，让这几个容器能互相访问
-   docker network create --subnet 172.38.0.0/16  redisnet
+   docker network create --subnet 172.38.0.0/16 redisnet
    
    # 运行3个redis容器
    # 第一台主
    docker run -d -v /root/conf-redis/replicate:/usr/local/etc/redis --net redisnet --name redis-m1 redis redis-server /usr/local/etc/redis/redis.conf
    
    # 第二台从，直接运行的时候就追随主
-   docker run -d -v /root/conf-redis/replicate:/usr/local/etc/redis --net redisnet --name redis-s1 redis redis-server /usr/local/etc/redis/redis.conf  --replicaof redis-m1 6379
+   docker run -d -v /root/conf-redis/replicate:/usr/local/etc/redis --net redisnet --name redis-s1 redis redis-server /usr/local/etc/redis/redis.conf --replicaof redis-m1 6379
    
    # 第三台从，进入容器追随主
    docker run -d -v /root/conf-redis/replicate:/usr/local/etc/redis --net redisnet --name redis-s2 redis redis-server /usr/local/etc/redis/redis.conf
@@ -796,11 +798,9 @@ X轴可以解决单点故障，但带来了新的问题：如何保证数据一�
    REPLICAOF redis-s2 6379
    ```
 
-2. **主备搭建**
+   
 
-   1. 
-
-3. **哨兵**
+2. **哨兵**
 
    哨兵就是用来解决，主从复制中需要人工介入的问题，一套哨兵可以监控多套主从复制集群（有点像keepalive）
 
@@ -843,7 +843,7 @@ X轴可以解决单点故障，但带来了新的问题：如何保证数据一�
 
    **哨兵之间是如何通信的？**
 
-   是通过在主节点开启了发布订阅，
+   是通过在主节点开启了发布订阅
 
    ```sh
    在主节点用命令可以看通信内容
@@ -854,7 +854,7 @@ X轴可以解决单点故障，但带来了新的问题：如何保证数据一�
 
    
 
-4. **数据拆分**
+3. **数据拆分**
 
    模型
 
@@ -938,7 +938,7 @@ X轴可以解决单点故障，但带来了新的问题：如何保证数据一�
 
      
 
-5. 
+4. 
 
 
 
@@ -946,13 +946,32 @@ X轴可以解决单点故障，但带来了新的问题：如何保证数据一�
 
 ## 缓存的几大问题
 
+以下问题的前提是在高并发下
+
+### 击穿
+
+请求的key不存在时，没有预缓存或过期了，大量的请求会直接查询数据库，如何阻塞这些请求，让每一个key同时只有一个请求给到数据库？
+
+**锁 setnx**
+
+![image-20211221100501055](assets/image-20211221100501055.png)
+
+
+
 ### 穿透
 
-​	一般情况，先查询redis，redis没有就查数据库。但是会存在一个问题，就是查询的这条数据数据库也没有，客户端如果一直查询redis没有的数据，那么就会一直访问数据库，让数据库造成无用的性能损耗
+一般情况，先查询redis，redis没有就查数据库。但是会存在一个问题，就是查询的这条数据数据库也没有，客户端如果一直查询redis没有的数据，那么就会一直访问数据库，让数据库造成无用的性能损耗
 
-​	实现方式有：
+**布隆过滤器**
 
-![image-20211217101042116](assets/image-20211217101042116.png)
+布隆过滤器不支持删除（布谷鸟过滤器支持），但是可以设置这个key的值为空来在客户端判断
+
+![image-20211221100818803](assets/image-20211221100818803.png)
+
+
 
 ### 雪崩
 
+大量的key同时批量失效
+
+![image-20211221101517342](assets/image-20211221101517342.png)

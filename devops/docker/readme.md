@@ -604,6 +604,8 @@ ff02::2	ip6-allrouters
 
 ## 自定义网络容器互联
 
+**docker运行的过程中如果修改了防火墙的状态，那么已有的network会失效，需要重启docker才恢复正常**
+
 ```sh
 [root@n1 docker]# docker network ls
 NETWORK ID     NAME      DRIVER    SCOPE

@@ -42,5 +42,26 @@
   mvn clean install -DskipTests
   ```
 
-  
 
+### 运行
+
+- 启动：
+
+  ```sh
+  cd leaf-server
+  # 方式一：maven
+  mvn spring-boot:run
+  # 方式二：shell
+  sh deploy/run.sh
+  ```
+
+- 测试
+
+  ```sh
+  #segment
+  curl http://localhost:8080/api/segment/get/leaf-segment-test
+  #snowflake
+  curl http://localhost:8080/api/snowflake/get/test
+  ```
+
+  

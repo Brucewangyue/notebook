@@ -7,6 +7,8 @@
 ​	1主2从环境搭建，版本3.5.9
 
 ```sh
+# 安装jdk
+
 # 下载 https://zookeeper.apache.org/releases.html
 # 解压
 # 配置

@@ -60,6 +60,8 @@ etcdctl get test_key
 
 [官方文档](https://etcd.io/docs/v3.5/install/)
 
+[配置文件模板](https://github.com/etcd-io/etcd/blob/release-3.4/etcd.conf.yml.sample)
+
 - 系统版本：centos 8
 - etcd版本：3.4.18
 
@@ -68,8 +70,8 @@ etcdctl get test_key
 # 下载
 # 解压
 # 拷贝 etcd etcdctl 到 /usr/local/bin
-# 创建配置文件
-# 创建数据目录
+# 创建配置文件 - 不需要的配置可以删除，etcd都有默认值
+# 创建配置文件中指定的data数据目录、wal日志目录
 # 启动
 etcd --config-file etcd.conf
 # 测试

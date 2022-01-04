@@ -75,9 +75,9 @@ docker network create --subnet 172.39.0.0/16 kafka
 
 # 创建zk
 # 创建 /root/conf-zk/zk{}/data/myid
-docker run --name zk1 --restart always -d -v /root/conf-zk/zk1/zoo.cfg:/conf/zoo.cfg -v /root/conf-zk/zk1/data/:/data --net kafka network-alia zookeeper
-docker run --name zk2 --restart always -d -v /root/conf-zk/zk2/zoo.cfg:/conf/zoo.cfg -v /root/conf-zk/zk2/data/:/data --net kafka network-alia zookeeper
-docker run --name zk3 --restart always -d -v /root/conf-zk/zk3/zoo.cfg:/conf/zoo.cfg -v /root/conf-zk/zk3/data/:/data --net kafka network-alia zookeeper
+docker run --name zk1 --restart always -d -v /root/conf-zk/zk1/zoo.cfg:/conf/zoo.cfg -v /root/conf-zk/zk1/data/:/data -p 2181:2181 --net kafka zookeeper
+docker run --name zk2 --restart always -d -v /root/conf-zk/zk2/zoo.cfg:/conf/zoo.cfg -v /root/conf-zk/zk2/data/:/data --net kafka zookeeper
+docker run --name zk3 --restart always -d -v /root/conf-zk/zk3/zoo.cfg:/conf/zoo.cfg -v /root/conf-zk/zk3/data/:/data --net kafka zookeeper
 
 # 验证
 docker exec zk1 zkServer.sh status

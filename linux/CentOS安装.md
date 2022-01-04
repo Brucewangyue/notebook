@@ -1,4 +1,4 @@
-# CentOs
+# CentOS
 
 ## 版本
 

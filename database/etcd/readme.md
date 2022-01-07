@@ -111,3 +111,15 @@ etcdctl get test_key -w json
 }
 ```
 
+
+
+## 使用
+
+- 通过前缀查询
+
+  ```sh
+  etcdctl get --prefix /lock/test
+  ```
+
+  
+

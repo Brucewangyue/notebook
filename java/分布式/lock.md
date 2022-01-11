@@ -13,17 +13,21 @@
 
 ## 自旋锁
 
+## 共享锁(读锁)
 
 
-## 排他锁
 
+## 排他锁(写锁)
 
+当写操作没有完成之前，它会阻断其他写锁和读锁
 
 ## 乐观锁
 
-
+通过版本号循环抢锁
 
 ## 悲观锁
+
+当有锁时，其他抢锁线程必须等待
 
 
 
@@ -32,13 +36,13 @@
 - synchronized
 - ReentrantLock
 
-## redis
+## Redis
 
 中小项目
 
 
 
-## zookeeper
+## Zookeeper
 
 **Java客户端实现**
 
@@ -91,7 +95,7 @@ org.apache.curator.framework.recipes.locks.StandardLockInternalsDriver#getsTheLo
 
 
 
-## etcd
+## Etcd
 
 redis虽然有红锁，集群模式，但是redis是ap模型，注重的是可用性，对于锁来讲，一致性比(cp)比可用性(ap)更好。
 
@@ -153,7 +157,7 @@ io.etcd.jetcd.LockImpl
 
 
 
-## mysql
+## MySQL
 
 
 
@@ -167,4 +171,6 @@ io.etcd.jetcd.LockImpl
 当提交更新时，判断数据库表中对应记录的当前版本号是否与之前取出来的版本号一致，如果一致则可以直接更新，如果不一致则表示是过期数据需要重试或者做其它操作
 
 ### 悲观锁
+
+for update
 

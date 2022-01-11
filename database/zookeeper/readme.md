@@ -55,3 +55,24 @@ Zookeeper 底层是一套数据结构。这个存储结构是一个**树形**结
 
 [官方Getting Started Guide v3.7.0](https://zookeeper.apache.org/doc/r3.7.0/zookeeperStarted.html#sc_ConnectingToZooKeeper)
 
+- 创建循序节点
+
+  ```sh
+  # 创建一个根znode
+  create /ids
+  # 创建顺序znode
+  create -s /ids//biz_
+  
+  reated /ids/biz_0000000000
+  
+  # 删除顺序节点
+  delete /ids/biz_0000000008
+  
+  # 再次创建顺序znode
+  create -s /ids//biz_
+  
+  reated /ids/biz_0000000009
+  # 结论：已创建过的顺序znode被删除，再次创建会跳过被删除的znode
+  ```
+
+  

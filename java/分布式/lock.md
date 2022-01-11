@@ -159,18 +159,42 @@ io.etcd.jetcd.LockImpl
 
 ## MySQL
 
-
-
 ### 乐观锁
 
 版本号控制的原理：
 
-为表中加一个 version 字段；
-当读取数据时，连同这个 version 字段一起读出；
-数据每更新一次就将此值加一；
-当提交更新时，判断数据库表中对应记录的当前版本号是否与之前取出来的版本号一致，如果一致则可以直接更新，如果不一致则表示是过期数据需要重试或者做其它操作
+- 为表中加一个 version 字段；
+- 当读取数据时，连同这个 version 字段一起读出；
+- 数据每更新一次就将此值加一；
+- 当提交更新时，判断数据库表中对应记录的当前版本号是否与之前取出来的版本号一致，如果一致则可以直接更新，如果不一致则表示是过期数据需要重试或者做其它操作
+
+```sql
+ create table `segment_id`(
+	`id` bigint NOT NULL auto_increment,
+    `biz_code` varchar(16) NOT NULL comment '业务类型编码',
+    `version` bigint NOT NULL comment '版本-乐观锁',
+    primary key (`id`)
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='顺序自增id表' auto_increment 1
+ 
+ -- 修改
+ update segment_id set `max_id` = ?, `version` = `version`+ 1 where `biz_code` = ? and `version` = ?
+```
+
+
 
 ### 悲观锁
-
 for update
+```sql
+-- fu(for update)锁，可重入基于行锁，不支持行锁的无效或锁表，支持阻塞和非阻塞
+create table fu_distribute_lock(
+ id int unsigned auto_increment primary key,
+ lock_name varchar(100) not null,
+ unique(lock_name)
+) engine=innodb;
 
+-- 
+select * from fu_distribute_lock where `lock_name`=? for update
+
+-- 
+insert into fu_distribute_lock(lock_name) values(?)
+```

@@ -23,7 +23,7 @@ yum install -y https://mirrors.tuna.tsinghua.edu.cn/jenkins/redhat-stable/jenkin
 ```sh
 systemctl start jenkins
 
-# 运行了jenkins服务后，会在/var/lib/jenkins/生成一堆文件
+# 运行jenkins服务，访问jenkins主页后，会在/var/lib/jenkins/生成一堆文件
 ```
 
 ### 修改插件源
@@ -57,7 +57,7 @@ vim /etc/sysconfig/jenkins
 
 ### maven
 
-jenkins利用maven打包基于maven的java项目
+jenkins利用maven插件调用本地maven构建基于maven的java项目
 
 在服务器手动安装指定版本的maven
 
@@ -131,7 +131,7 @@ yum install -y git
 
 maven构建命令，跳过测试环节
 
-![image-20220114173828820](assets/image-20220114173828820.png)
+![image-20220115160638799](assets/image-20220115160638799.png)
 
 立即构建
 

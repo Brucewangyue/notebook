@@ -183,7 +183,15 @@ maven构建命令，跳过测试环节
 
 ### jar包部署
 
+后台运行jar，屏蔽ctrl+c
 
+### Vue项目部署
+
+jenkins配置nodejs
+
+打包dist
+
+nginx->wab服务
 
 ## 常见问题
 

@@ -2,6 +2,21 @@
 
 [官方安装连接](https://docs.docker.com/engine/install/centos/#install-using-the-repository)
 
+配置镜像仓库
+
+```sh
+vim /etc/docker/daemon.json
+
+{
+   "registry-mirrors" : [
+        "https://9wlwfm48.mirror.aliyuncs.com"
+   ]
+}
+
+```
+
+
+
 # docker 常用命令
 
 ```sh

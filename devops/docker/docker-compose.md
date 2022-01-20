@@ -8,6 +8,8 @@
 
 ## 安装
 
+[官方安装文档](https://docs.docker.com/compose/install/)
+
 ### 测试
 
 ```sh

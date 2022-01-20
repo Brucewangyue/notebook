@@ -186,11 +186,70 @@ UUID长度128bit，32个16进制字，占用16个字节的空间，占用空间�
 
 这里的分布式ID是模拟的，在计算机中，二进制位如果只使用18个长度，那么只能表示2^18次方个ID，那么显然不够，所以使用的是64位的Long类型来实现，排除第一号位是符号位，那么可以生成2^63次方个ID
 
+### [SnowFlake介绍](https://segmentfault.com/a/1190000011282426)
+
+### 时钟回拨 
+
+美团解决访问：
+
+![image](assets/1453b4e9.png)
+
+参见上图整个启动流程图，服务启动时首先检查自己是否写过ZooKeeper leaf_forever节点：
+
+1. 若写过，则用自身系统时间与leaf_forever/${self}节点记录时间做比较，若小于leaf_forever/${self}时间则认为机器时间发生了大步长回拨，服务启动失败并报警。
+2. 若未写过，证明是新服务节点，直接创建持久节点leaf_forever/${self}并写入自身系统时间，接下来综合对比其余Leaf节点的系统时间来判断自身系统时间是否准确，具体做法是取leaf_temporary下的所有临时节点(所有运行中的Leaf-snowflake节点)的服务IP：Port，然后通过RPC请求得到所有节点的系统时间，计算sum(time)/nodeSize。
+3. 若abs( 系统时间-sum(time)/nodeSize ) < 阈值，认为当前系统时间准确，正常启动服务，同时写临时节点leaf_temporary/${self} 维持租约。
+4. 否则认为本机系统时间发生大步长偏移，启动失败并报警。
+5. 每隔一段时间(3s)上报自身系统时间写入leaf_forever/${self}。
+
+由于强依赖时钟，对时间的要求比较敏感，在机器工作时NTP同步也会造成秒级别的回退，建议可以直接关闭NTP同步。要么在时钟回拨的时候直接不提供服务直接返回ERROR_CODE，等时钟追上即可。**或者做一层重试，然后上报报警系统，更或者是发现有时钟回拨之后自动摘除本身节点并报警**，如下：
+
+```sql
+ //发生了回拨，此刻时间小于上次发号时间
+ if (timestamp < lastTimestamp) {
+  			  
+            long offset = lastTimestamp - timestamp;
+            if (offset <= 5) {
+                try {
+                	//时间偏差大小小于5ms，则等待两倍时间
+                    wait(offset << 1);//wait
+                    timestamp = timeGen();
+                    if (timestamp < lastTimestamp) {
+                       //还是小于，抛异常并上报
+                        throwClockBackwardsEx(timestamp);
+                      }    
+                } catch (InterruptedException e) {  
+                   throw  e;
+                }
+            } else {
+                //throw
+                throwClockBackwardsEx(timestamp);
+            }
+        }
+ //分配ID       
+```
+
+
+
+一：解决ID服务刚启动时的判断
+
+1. 通过zk的node节点的值（存放时间）判断
+
+2. 通过rpc远程调用其他在线的ID服务的时间做比较
+
+   ![image-20220114092243925](assets/image-20220114092243925.png)
+
+二：解决ID服务运行时NTP服务校准导致的回拨
+
+
+
+
+
 
 
 ## 美团Lead
 
-[官方文档](https://github.com/Meituan-Dianping/Leaf)
+[官方文档1](https://github.com/Meituan-Dianping/Leaf)，[官方文档2![image](assets/721ceeff.png)](https://tech.meituan.com/2017/04/21/mt-leaf.html)
 
 ### 安装
 
@@ -251,4 +310,18 @@ UUID长度128bit，32个16进制字，占用16个字节的空间，占用空间�
   ```
 
   
+
+### 原理
+
+**workID怎么分配？**
+
+Leaf使用Zookeeper作为WorkID生成器，每次机器启动时去Zookeeper特定路径/forever/下读取子节点列表，每个子节点存储了IP:Port及对应的workId，遍历子节点列表，如果存在当前IP:Port对应的workId，就使用节点信息中存储的workId，不存在就创建一个永久有序节点，将序号作为workId，并且将workId信息写入本地缓存文件workerID.properties，供启动时连接Zookeeper失败，读取使用。因为workId只分配了10个二进制位，所以取值范围是0-1023。
+
+**序列号怎么生成？**
+
+序列号是12个二进制位，取值范围是0到4095，主要保证同一个leaf服务在同一毫秒内，生成的ID的唯一性。
+序列号是生成流程如下：
+
+1. 当前时间戳与上一个ID的时间戳在同一毫秒内，那么对sequence+1，如果sequence+1超过了4095，那么进行等待，等到下一毫秒到了之后再生成ID。
+2. 当前时间戳与上一个ID的时间戳不在同一毫秒内，取一个100以内的随机数作为序列号。
 

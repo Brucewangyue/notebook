@@ -48,7 +48,7 @@
   source /etc/profile
   
   # 测试 
-  java version
+  java -version
   ```
 ## 优化
 

@@ -105,6 +105,27 @@ yum install -y git
 
 ![image-20220114155919595](assets/image-20220114155919595.png)
 
+### docker
+
+安装docker
+
+**配置jenkins用户权限**
+
+如果jenkins的配置文件中的用户不是root，那么需要配置docker执行权限
+
+```sh
+# 将用户jenkins加入到docker用户组中
+gpasswd -a jenkins docker
+#更新用户组
+newgrp docker
+```
+
+
+
+
+
+
+
 ### 配置工具路径
 
 访问http://IP/configureTools/配置

@@ -1,10 +1,12 @@
 # Distributed Transaction
 
+**不要为了极地概率的事件，增加极大的研发成本**
+
+
 名词解释： 
 
 - TC:Transaction Client：代表事务客户端，对应流程中是对事务发起⽅与事务参与⽅的泛指
 - TM:TransactionManager：也简称为TxManager是事务管理器
-
 ## 二阶段提交 （2PC）
 
 ![image-20220124150647416](assets/image-20220124150647416.png)

@@ -4,13 +4,34 @@
 
 
 
+### 表空间
+
+```sql
+-- 查看表空间
+SELECT * FROM v$tablespace;
+-- 查看当前表空间
+SELECT PROPERTY_VALUE FROM database_properties WHERE PROPERTY_NAME ='DEFAULT_PERMANENT_TABLESPACE';
+-- 查看某个用户的所属默认表空间
+SELECT default_tablespace FROM dba_users WHERE username ='TEMP_TEST';
+```
+
+1. **System表空间**
+
+   SYSTEM表空间主要存放SYS用户的各个对象和其他用户的少量对象
+
+2. **SYSAUX表空间**
+
+   SYSTEM表空间主要用于存放Oracle系统内部的数据字典，而SYSAUX表空间则充当SYSTEM表空间的辅助表空间，主要用于存储数据字典以外的其他数据对象，它在一定程度上降低了SYSTEM表空间的负荷
+
+3. **USERS表空间**
+
+   创建一个用户时，没有给这个用户指定默认表空间，这个用户就会采用默认的表空间——users表空间（sys和system等系统用户采用的默认表空间是system表空间）
+
+
+
 ## 安装
 
 
-
-## 连接
-
-### 在数据库安装服务器本地连接
 
 
 
@@ -36,32 +57,60 @@ oracle提供三种标准角色（role）:connect/resource和dba.
 
    包括无限制的空间限额和给其他用户授予各种权限的能力。
 
+### 用户
 
-
-### 示例
-
-创建用户以及设置密码
+创建用户
 
 ```sql
-create user ext_test_query identified by AmsdLK2022#;
+-- 创建用户 temp_test 密码 Hkancu1904
+create user temp_test identified by Hkancu1904;
+-- 指定默认表空间
+create user dave2 identified by dave2 default tablespace users;
 ```
 
-查询已有用户
+查看用户
 
 ```sql
+select * from dba_users; 
+select * from all_users; 
+select * from user_users;
+```
 
+### 权限
+
+查看权限
+
+```sql
+-- 查看CONNECT,RESOURCE角色拥有哪些权限
+SELECT * FROM dba_sys_privs WHERE grantee IN ('RESOURCE角色有哪些权限', 'CONNECT,') ORDER BY 1;
+-- 查询对象（用户、角色）拥有的权限
+select * from dba_sys_privs WHERE grantee = 'CONNECT';
 ```
 
 授权
 
 ```sql
-grant connect to ext_test_query;
+-- 连接数据库权限
+grant connect to TEMP_TEST;
+-- 查询视图权限
+grant select on view_car_runtime_b to user01;
+-- 授予查询任何表
+grant select any table to TEMP_TEST;
 ```
 
 撤销权限
 
 ```sql
 revoke connect from ext_test_query;
+```
+
+### 角色
+
+查看角色
+
+```sql
+-- 查询用户拥有的角色
+select * from dba_role_privs WHERE grantee = 'TEMP_TEST';
 ```
 
 
@@ -78,3 +127,68 @@ ora1024   262314        1   0   Mar 23      -  0:12 ora_pmon_mysid
 ORACLE_SID is mysid
 ```
 
+## SQLPLUS
+
+```sh
+./sqlplus / as sysdba
+```
+
+设置sqlplus 
+
+```sql
+set linesize 300;
+set pagesize 20;
+```
+
+## PL/SQL
+
+**安装**
+
+官网下载客户端(几十兆)
+
+**Oracle客户端配置**
+
+[Oracle客户端官方下载地址](https://www.oracle.com/database/technologies/instant-client/winx64-64-downloads.html)
+
+![image-20220223110953153](assets/image-20220223110953153.png)
+
+1. 将软件包解压缩到单个目录中，例如`C:\oracle\instantclient_19_3`
+2. 将此目录添加到`PATH`环境变量中，环境变量名：ORACLE_HOME
+3. 在`C:\oracle\instantclient_19_3\network\admin`下创建tnsnames.ora
+
+#### 创建tnsnames.ora
+
+使用sid或service_name都可以连接数据库
+
+```markdown
+# 1、service_name
+## TEST 连接名
+## HOST oracle服务器地址
+## PORT oracle服务端口
+## service_name oracle服务名
+nccdb =
+ (DESCRIPTION =
+  (ADDRESS_LIST =
+   (ADDRESS = (PROTOCOL = TCP)(HOST = 168.168.10.10)(PORT = 1521))
+  )
+  (CONNECT_DATA =
+   (service_name = orastat)
+  )
+ )
+
+# 2、sid
+
+nccdb =
+ (DESCRIPTION =
+  (ADDRESS_LIST =
+   (ADDRESS = (PROTOCOL = TCP)(HOST = 168.168.10.10)(PORT = 1521))
+  )
+  (CONNECT_DATA =
+   (sid = orastat)
+  )
+ )
+```
+
+**登录数据库**
+
+![image-20220223112529098](assets/image-20220223112529098.png)

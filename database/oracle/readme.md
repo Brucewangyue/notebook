@@ -13,6 +13,8 @@ SELECT * FROM v$tablespace;
 SELECT PROPERTY_VALUE FROM database_properties WHERE PROPERTY_NAME ='DEFAULT_PERMANENT_TABLESPACE';
 -- 查看某个用户的所属默认表空间
 SELECT default_tablespace FROM dba_users WHERE username ='TEMP_TEST';
+-- 修改用户默认表空间
+alter user dbcenter default tablespace DBCENTER_DATA;
 ```
 
 1. **System表空间**
@@ -26,6 +28,16 @@ SELECT default_tablespace FROM dba_users WHERE username ='TEMP_TEST';
 3. **USERS表空间**
 
    创建一个用户时，没有给这个用户指定默认表空间，这个用户就会采用默认的表空间——users表空间（sys和system等系统用户采用的默认表空间是system表空间）
+
+## 表
+
+```sql
+
+```
+
+
+
+
 
 
 
@@ -96,6 +108,14 @@ grant connect to TEMP_TEST;
 grant select on view_car_runtime_b to user01;
 -- 授予查询任何表
 grant select any table to TEMP_TEST;
+-- 授予用户使用表空间的权限
+alter user 用户名 quota 0 on 表空间;
+-- 给某个用户分配指定用户的所有表的某个权限（select,delete等）
+BEGIN
+   FOR R IN (SELECT owner, table_name FROM all_tables WHERE owner='TheOwner') LOOP
+      EXECUTE IMMEDIATE 'grant select on '||R.owner||'.'||R.table_name||' to TheUser';
+   END LOOP;
+END; 
 ```
 
 撤销权限
@@ -130,6 +150,7 @@ ORACLE_SID is mysid
 ## SQLPLUS
 
 ```sh
+# 当在数据库安装服务器上执行：以管理员身份免密登录数据库c'c
 ./sqlplus / as sysdba
 ```
 
@@ -138,6 +159,26 @@ ORACLE_SID is mysid
 ```sql
 set linesize 300;
 set pagesize 20;
+```
+
+测试
+
+```sql
+create user sct_dba identified by Sct2022NccDBA;
+create user temp_test identified by Hkancu1904;
+
+
+SELECT owner,table_name,TABLESPACE_NAME FROM dba_tables where owner = 'NCC1903';
+SELECT owner,table_name,TABLESPACE_NAME FROM dba_tables where owner = 'SYSTEM';
+
+
+-- 查看表空间
+select * from v$tablespace;
+-- 查看表空间下的表
+select OWNER,TABLE_NAME,TABLESPACE_NAME from dba_tables where TABLESPACE_NAME='NCC_DATA01';
+select OWNER,TABLE_NAME,TABLESPACE_NAME from dba_tables where TABLESPACE_NAME='UNDOTBS1';
+
+order by ts desc
 ```
 
 ## PL/SQL

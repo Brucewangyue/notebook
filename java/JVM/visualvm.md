@@ -69,8 +69,6 @@ visualvm新访问地址：https://visualvm.github.io/index.html
    5. histogram柱状图：表示年龄段对象的存储柱状图 
    6. 如果显示指定-XX:+UseParallelGC --新生代并行、老年代串行收集器 ，则 histogram柱状图不支持当前收集器 
 
-
-
 **引用：** 
 
 http://www.oracle.com/technetwork/java/visualgc-136680.html 

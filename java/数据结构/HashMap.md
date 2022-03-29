@@ -13,7 +13,8 @@ hashmap多线程操作同时调用put()方法后可能导致get()死循环,从�
 
 多个线程put的时候造成了某个key值Entry key List的死循环，然后再调用put方法操作的时候就会进入链表的死循环内
 
-**解决办法：HashTable、ConcurrentHashMap**
+**解决办法：HashTable、ConcurrentHashMap、Collections.synchronizedMap(hashMap)**  
+HashTable和Vector 自带锁，现在都不用，JDK1.0就存在
 
 
 

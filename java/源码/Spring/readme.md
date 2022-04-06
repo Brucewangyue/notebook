@@ -193,4 +193,3 @@ public class TulingCompent implements ApplicationContextAware,BeanNameAware {
     } 
 }
 ```
-

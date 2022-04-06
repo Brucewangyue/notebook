@@ -1,10 +1,9 @@
-·[中文文档地址](https://github.com/DocsHome/spring-docs/blob/master/SUMMARY.md)
+[中文文档地址](https://github.com/DocsHome/spring-docs/blob/master/SUMMARY.md)
 
 [TOC]
 
 **问题：** 
 
-1. 谈一下Spring IOC的底层实现
 2. Spring是如何解决循环依赖问题
 3. Spring AOP的底层实现原理
 4. Spring的事务是如何回滚的
@@ -53,6 +52,10 @@ FactoryBean也是一个接口，继承他的Bean会成为一个特殊的Bean，�
 
 
 ## 简述SpringIoC的加载过程
+
+
+
+
 
 
 

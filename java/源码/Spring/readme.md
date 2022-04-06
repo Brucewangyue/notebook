@@ -16,6 +16,12 @@
 
 
 
+## Spring 有哪些模块
+
+![image-20220406210440572](D:\data\code\github\notebook\java\源码\Spring\assets\image-20220406210440572.png)
+
+
+
 ## 描述下BeanFactory
 
 BeanFactory是bean工厂，spring的顶级核心接口，工厂只负责按照要求生产bean，bean的定义信息，要生产成什么样，由下家ApplicationContext决定

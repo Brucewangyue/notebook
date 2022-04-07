@@ -197,6 +197,8 @@ public static void invokeBeanFactoryPostProcessors(
 }
 ```
 
+![image-20220407084946629](assets/image-20220407084946629.png)
+
 首先判断beanFactory是不是BeanDefinitionRegistry的实例，当然肯定是的，然后执行如下操作： 
 
 1. 定义了一个Set，装载BeanName，后面会根据这个Set，来判断后置处理器是否被执行过了
@@ -407,8 +409,6 @@ public void parse(Set<BeanDefinitionHolder> configCandidates) {
 ```
 
 第一个if的parse方法：
-
-
 
 ```java
 protected final void parse(AnnotationMetadata metadata, String beanName) throws IOException { 

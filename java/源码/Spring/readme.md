@@ -1,18 +1,13 @@
-[中文文档地址](https://github.com/DocsHome/spring-docs/blob/master/SUMMARY.md)
+[s中文文档地址](https://github.com/DocsHome/spring-docs/blob/master/SUMMARY.md)
 
 [TOC]
 
 **问题：** 
 
-2. Spring是如何解决循环依赖问题
 3. Spring AOP的底层实现原理
 4. Spring的事务是如何回滚的
 5. 谈一下Spring的事务传播
-6. 简述Bean的生命周期
-7. Spring中有哪些扩展接口及调用时机
-8. spring中使用了哪些设计模式
 8. 自动装配原理
-8. Autowired和Resouce的区别
 
 
 
@@ -76,7 +71,16 @@ FactoryBean也是一个接口，继承他的Bean会成为一个特殊的Bean，�
 
 ## 什么是bean的生命周期
 
-bean的创建----->初始化----->销毁方法
+1. 实例化Bean对象，这个时候Bean的对象是非常低级的，基本不能够被我们使用，因为连最基本的属性都没有设置，可以理解为连Autowired注解都是没有解析的； 
+2. 填充属性，当做完这一步，Bean对象基本是完整的了，可以理解为Autowired注解已经解析完毕，依赖注入完成了； 
+3. 如果Bean实现了BeanNameAware接口，则调用setBeanName方法； 
+4. 如果Bean实现了BeanClassLoaderAware接口，则调用setBeanClassLoader方法； 
+5.  如果Bean实现了BeanFactoryAware接口，则调用setBeanFactory方法； 
+6. 调用BeanPostProcessor的postProcessBeforeInitialization方法； 
+7. 如果Bean实现了InitializingBean接口，调用afterPropertiesSet方法； 
+8. 如果Bean定义了init-method方法，则调用Bean的init-method方法； 
+9.  调用BeanPostProcessor的postProcessAfterInitialization方法；当进行到这一步，Bean已经被准备就绪了，一直停留在应用的上下文中，直到被销毁； 
+10. 如果应用的上下文被销毁了，如果Bean实现了DisposableBean接口，则调用destroy方法，如果Bean定义了destory-method声明了销毁方法也会被调用
 
 **方式一：**由容器管理Bean的生命周期，我们可以通过自己指定bean的初始化方法和bean的销毁方法
 
@@ -199,3 +203,29 @@ public class TulingCompent implements ApplicationContextAware,BeanNameAware {
     } 
 }
 ```
+
+
+
+## spring中使用了哪些设计模式
+
+[spring设计模式总结](spring设计模式总结.md)
+
+
+
+## Spring是如何解决循环依赖问题
+
+[spring循环依赖问题](spring循环依赖问题.md)
+
+
+
+## Spring中有哪些扩展接口及调用时机
+
+BeanFactoryPostProcessor
+
+BeanPostProcessor
+
+ApplicationContextAware, BeanNameAware, BeanClassLoaderAware
+
+InitializingBean,DisposableBean
+
+init-method

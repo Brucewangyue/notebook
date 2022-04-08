@@ -229,3 +229,9 @@ ApplicationContextAware, BeanNameAware, BeanClassLoaderAware
 InitializingBean,DisposableBean
 
 init-method
+
+
+
+## spring事件机制
+
+[spring事件原理](spring事件原理.md)

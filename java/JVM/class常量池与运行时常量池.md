@@ -2,7 +2,7 @@
 
 Class常量池可以理解为是Class文件中的资源仓库。 Class文件中除了包含类的版本、字段、方法、接口等描述信息外，还有一项信息就是**常量池(constant pool table)**，用于存放编译期生成的各种**字面量(Literal)和符号引用(Symbolic References)**
 
-一个class文件的16进制大体结构如下图：
+一个class文件的16进制（1个16进制数占4位，0.5字节）大体结构如下图：
 
 ![image-20220309231024487](D:\data\code\github\notebook\java\assets\image-20220309231024487.png)
 

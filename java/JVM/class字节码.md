@@ -1,9 +1,7 @@
 ## 通过一份java代码理解字节码
 
 ```java
-package com.tuling.smlz.jvm.classbyatecode;
-
-public class TulingByteCode {
+public class ByteCode {
 
     private String userName;
 
@@ -17,7 +15,7 @@ public class TulingByteCode {
 }
 ```
 
-**通过我们javap -verbose TulingByteCode .class反编译**
+**通过我们javap -verbose ByteCode .class反编译**
 
 ```java
 //表示我们通过反编译的来源是哪个字节码文件
@@ -121,7 +119,17 @@ SourceFile: "TulingByteCode.java"
 
 ![image-20220305153754661](assets/image-20220305153754661.png)
 
-**class文件结构图** 
+扩展：
+
+```matlab
+0x19
+= 1 * 16^1 + 9 * 16^0
+= 25
+```
+
+
+
+**class文件结构图**
 
 ![image-20220305153814102](assets/image-20220305153814102.png)
 
@@ -143,7 +151,11 @@ SourceFile: "TulingByteCode.java"
 
 ![image-20220305154601679](assets/image-20220305154601679.png)
 
-**常量池入口，占用二个字节,表示常量池中的个数=00 19 (25)-1=24个, 为啥需要-1，因为常量池中的第0个位置被我们的jvm占用了表示为null 所以我们通过编译出来的常量池索引是从1开始的**
+**常量池入口，占用二个字节,表示常量池中的个数=00 19 (25)-1=24个**
+
+为啥需要-1?
+
+
 
 ```java
 Constant pool:

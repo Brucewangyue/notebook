@@ -651,6 +651,70 @@ return beanInstance;
 instanceWrapper = createBeanInstance(beanName, mbd, args);//创建bean的实例。核心
 ```
 
+这个方法在解析bean的有参构造函数的时候很复杂，具体可以看这个视频：[从44分钟开始](https://ke.qq.com/webcourse/index.html#cid=398381&term_id=102978903&taid=10081855907173421&type=1024&vid=5285890811411657963)
+
+```java
+protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd, @Nullable Object[] args) {
+	// Make sure bean class is actually resolved at this point.
+	Class<?> beanClass = resolveBeanClass(mbd, beanName);
+	if (beanClass != null && !Modifier.isPublic(beanClass.getModifiers()) && !mbd.isNonPublicAccessAllowed()) {
+		throw new BeanCreationException(mbd.getResourceDescription(), beanName,
+				"Bean class isn't public, and non-public access not allowed: " + beanClass.getName());
+	}
+	// 通过实现BeanFactoryPostProcessor接口，然后在方法里面获取到bean定义，设置supplier属性
+	// 实际效果类似FactoryBean
+	Supplier<?> instanceSupplier = mbd.getInstanceSupplier();
+	if (instanceSupplier != null) {
+		return obtainFromSupplier(instanceSupplier, beanName);
+	}
+	// 工厂方法： bean标签里面的factory-method，实现了静态工厂和实例工厂，实际上很少用
+	// 里面包含了如何解析泪的方法的反射代码，比如重载方法如何获取，静态方法如何调用，实例方法如何调用等
+	if (mbd.getFactoryMethodName() != null) {
+		return instantiateUsingFactoryMethod(beanName, mbd, args);
+	}
+	// Shortcut when re-creating the same bean...
+	// 原型bean创建构造器缓存，由于原型bean在创建时需要解析找到合适的构造函数，为了避免每次解析的性能消耗，这里做了个缓存
+	boolean resolved = false;
+	boolean autowireNecessary = false;
+	if (args == null) {
+		synchronized (mbd.constructorArgumentLock) {
+			if (mbd.resolvedConstructorOrFactoryMethod != null) {
+				resolved = true;
+				autowireNecessary = mbd.constructorArgumentsResolved;
+			}
+		}
+	}
+	if (resolved) {
+		if (autowireNecessary) {
+			return autowireConstructor(beanName, mbd, null, null);
+		}
+		else {
+			return instantiateBean(beanName, mbd);
+		}
+	}
+	// Candidate constructors for autowiring?
+	// 以下情况符合其一即可进入
+	// 1.存在可选的构造方法
+	// 2.自动装配模型为构造函数自动装配
+	// 3.给BeanDefinition中设置了构造参数值
+	// 4.有参与构造函数参数列表的参数
+	Constructor<?>[] ctors = determineConstructorsFromBeanPostProcessors(beanClass, beanName);
+	if (ctors != null || mbd.getResolvedAutowireMode() == AUTOWIRE_CONSTRUCTOR ||
+			mbd.hasConstructorArgumentValues() || !ObjectUtils.isEmpty(args)) {
+		return autowireConstructor(beanName, mbd, ctors, args);
+	}
+	// Preferred constructors for default construction?
+	// 找出最合适的默认构造方法
+	ctors = mbd.getPreferredConstructors();
+	if (ctors != null) {
+		return autowireConstructor(beanName, mbd, ctors, null);
+	}
+	// No special handling: simply use no-arg constructor.
+	// 使用默认无参构造函数创建对象
+	return instantiateBean(beanName, mbd);
+}
+```
+
 **填充属性** 
 
 其次是填充属性，位于：

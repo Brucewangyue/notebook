@@ -639,7 +639,7 @@ com.tuling.jvm.MyClassLoaderTest$MyClassLoader@66d3c617
 
 ## 对象创建
 
-![image-20220313140811367](D:\data\code\github\notebook\java\JVM\assets\image-20220313140811367.png)
+![image-20220313140811367](assets\image-20220313140811367.png)
 
 ### 类加载检查
 
@@ -678,11 +678,11 @@ com.tuling.jvm.MyClassLoaderTest$MyClassLoader@66d3c617
 
 在HotSpot虚拟机中，对象在内存中存储的布局可以分为3块区域：对象头（Header）、 实例数据（Instance Data） 和对齐填充（Padding）。 HotSpot虚拟机的对象头包括两部分信息，第一部分用于存储对象自身的运行时数据， 如哈希码（HashCode）、GC分代年龄、锁状态标志、线程持有的锁、偏向线程ID、偏向时间戳等。对象头的另外一部分是类型指针，即对象指向它的类元数据的指针，虚拟机通过这个指针来确定这个对象是哪个类的实例
 
-![image-20220316144316136](D:\data\code\github\notebook\java\JVM\assets\image-20220316144316136.png)
+![image-20220316144316136](assets\image-20220316144316136.png)
 
 对象头在hotspot的C++源码里的注释如下：
 
-![image-20220316150541214](D:\data\code\github\notebook\java\JVM\assets\image-20220316150541214.png)
+![image-20220316150541214](assets\image-20220316150541214.png)
 
 ### 执行init方法
 
@@ -792,7 +792,7 @@ Space losses: 0 bytes internal + 0 bytes external = 0 bytes total
 
 **对象内存分配流程图**
 
-![image-20220316162700371](D:\data\code\github\notebook\java\JVM\assets\image-20220316162700371.png)
+![image-20220316162700371](assets\image-20220316162700371.png)
 
 **对象栈上分配**
 
@@ -995,7 +995,7 @@ user=0.08 sys=0.02, real=0.03 secs]
 - 当然，如果minor gc之后剩余存活的需要挪动到老年代的对象大小还是大于老年代可用空间，那么也会触发full gc，full gc完之后如果还是没有空间放minor gc之后的存活对象，则也会发生“OOM”
 
 
-![image-20220317102747191](D:\data\code\github\notebook\java\JVM\assets\image-20220317102747191.png)
+![image-20220317102747191](assets\image-20220317102747191.png)
 
 ### 对象内存回收
 

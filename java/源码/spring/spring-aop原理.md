@@ -382,6 +382,9 @@ http\://www.springframework.org/schema/aop=org.springframework.aop.config.AopNam
 
 spring通过@EnableAspectJAutoProxy开启aop切面，在注解类上面发现@Import(AspectJAutoProxyRegistrar.class)，AspectJAutoProxyRegistrar实现了ImportBeanDefinitionRegistrar，所以他会通过registerBeanDefinitions方法为我们容器导入beanDefinition
 
+- proxyTargetClass = fasle：通过jdk基于接口方式进行织入，这时候代理生成的是一个接口对象
+- proxyTargetClass = true: 使用 cglib 的动态代理方式，这时候代理生成的是一个继承代理对象
+
 **详细流程图：** https://www.processon.com/view/link/5f1958a35653bb7fd24d0aad 
 
 **在Spring容器的第一个单例Bean被实例化之前，首先要把AOP相关的对象提前准备好，因为无法预测哪些对象需要动态代理**
@@ -1244,6 +1247,7 @@ public List<Object> getInterceptorsAndDynamicInterceptionAdvice(
 通过上面代码可知，将增强器转换为方法拦截器链，最终包装为ReflectiveMethodInvocation执行它的proceed方法，那么我们就来看下具体如何执行
 
 ```java
+
 ```
 
 这样一看会感觉很蒙，其实追踪一下源码就很好理解了 
@@ -1251,6 +1255,7 @@ public List<Object> getInterceptorsAndDynamicInterceptionAdvice(
 org.springframework.aop.interceptor.ExposeInvocationInterceptor#invoke
 
 ```java
+
 ```
 
 org.springframework.aop.aspectj.AspectJAfterThrowingAdvice#invoke 
@@ -1258,6 +1263,7 @@ org.springframework.aop.aspectj.AspectJAfterThrowingAdvice#invoke
 异常拦截器，当方法调用异常会被执行 
 
 ```java
+
 ```
 
 org.springframework.aop.framework.adapter.AfterReturningAdviceInterceptor#invoke 
@@ -1265,6 +1271,7 @@ org.springframework.aop.framework.adapter.AfterReturningAdviceInterceptor#invoke
 返回拦截器，方法执行失败，不会调用
 
 ```java
+
 ```
 
 org.springframework.aop.aspectj.AspectJAfterAdvice#invoke 
@@ -1272,6 +1279,7 @@ org.springframework.aop.aspectj.AspectJAfterAdvice#invoke
 后置拦截器，总是执行
 
 ```java
+
 ```
 
 org.springframework.aop.framework.adapter.MethodBeforeAdviceInterceptor#invoke 
@@ -1279,6 +1287,7 @@ org.springframework.aop.framework.adapter.MethodBeforeAdviceInterceptor#invoke
 前置拦截器
 
 ```java
+
 ```
 
 这里用了责任链的设计模式，递归调用排序好的拦截器链

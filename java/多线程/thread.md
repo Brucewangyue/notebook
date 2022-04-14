@@ -53,6 +53,10 @@
 
 sleep()方法在睡眠的时候，正常情况不到时间是不会醒的，这个时候可以用interrupt设置标志位，然后可以通过catch(InterruptedException)来进行处理，wait  join同理
 
+- 配合sleep的效果：提前唤醒
+- 配合wait的效果：超时处理
+- 配合死循环：跳出死循环，安全退出做死循环处理的线程
+
 **interrupt和锁**
 
 - synchronized 无法被中断

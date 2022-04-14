@@ -383,47 +383,49 @@ public class SocketClient {
 
 2. 查看本地连接：nestat -natp
 
-   ![image-20220402222023583](D:\data\code\github\notebook\computer\assets\image-20220402222023583.png)
+   ![image-20220402222023583](assets\image-20220402222023583.png)
 
 3. 抓包：tcpdump -nn -i eth0 port 9090
 
 4. 查看进程号：jps
 
-   ![image-20220402222329198](D:\data\code\github\notebook\computer\assets\image-20220402222329198.png)
+   ![image-20220402222329198](assets\image-20220402222329198.png)
 
 5. 查看进程文件描述符分配情况：lsof -p 7932
 
-   ![image-20220402222401419](D:\data\code\github\notebook\computer\assets\image-20220402222401419.png)
+   ![image-20220402222401419](assets\image-20220402222401419.png)
 
 6. 启动客户端：javac SocketClient.java && java SocketClient
 
 7. 查看抓包数据
 
-   ![image-20220402222707986](D:\data\code\github\notebook\computer\assets\image-20220402222707986.png)
+   ![image-20220402222707986](assets\image-20220402222707986.png)
 
-   注意：此时服务端还为调用到accpet代码，还未开始接收客户端连接
+   注意：此时服务端还未调用到accpet代码，还未开始接收客户端连接
 
    虽然这里客户端和服务端已经3次握手了，但是服务器端还未分配资源
 
-   ![image-20220402222941046](D:\data\code\github\notebook\computer\assets\image-20220402222941046.png)
+   ![image-20220402222941046](assets\image-20220402222941046.png)
 
    这里表示内核已经有连接了，但是还未到代码端
 
    如果此时客户端在命令行中给服务端发送数据，查看抓包信息，发现能正常通信
 
-   ![image-20220402223513764](D:\data\code\github\notebook\computer\assets\image-20220402223513764.png)
+   ![image-20220402223513764](assets\image-20220402223513764.png)
 
    此时再看网络连接，发现内核接收到了4个字节的数据（客户端发：1111），在内核的接收队列中
 
-   ![image-20220402223617265](D:\data\code\github\notebook\computer\assets\image-20220402223617265.png)
+   ![image-20220402223617265](assets\image-20220402223617265.png)
 
    **只要完成3次握手，内核就会开辟空间资源，TCP是面向连接的、可靠的传输协议**
+
+   **[扩展：Recv-Q和Send-Q含义](https://blog.csdn.net/iceman1952/article/details/109014798)**
 
 8. 服务端在命令行中回车
 
    代码中运行了server.accpet()
 
-   ![image-20220402224022375](D:\data\code\github\notebook\computer\assets\image-20220402224022375.png)
+   ![image-20220402224022375](assets\image-20220402224022375.png)
 
    看网络连接，内核连接数据接收队列被读取了，并且连接被分配给了7932进程
 
@@ -469,7 +471,7 @@ public class SocketClient {
 
 **TCP连接模型**
 
-![image-20220402232645988](D:\data\code\github\notebook\computer\assets\image-20220402232645988.png)
+![image-20220402232645988](assets\image-20220402232645988.png)
 
 
 
@@ -540,11 +542,11 @@ strace -ff -o out /usr/java/j2sdk1.4.2_18/bin/java TestSocket
 # 查看四元组条目，处于监听状态，开始可以接收任何客户端连接
 ```
 
-![image-20220403140617339](D:\data\code\github\notebook\computer\assets\image-20220403140617339.png)
+![image-20220403140617339](assets\image-20220403140617339.png)
 
 查看主线程中的系统调用
 
-![image-20220403133955710](D:\data\code\github\notebook\computer\assets\image-20220403133955710.png)
+![image-20220403133955710](assets\image-20220403133955710.png)
 
 当有一个客户端连接进来：nc ip 8090
 

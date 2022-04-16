@@ -13,7 +13,7 @@
 
 ## Spring 有哪些模块
 
-![image-20220406210440572](D:\data\code\github\notebook\java\源码\Spring\assets\image-20220406210440572.png)
+![image-20220406210440572](assets\image-20220406210440572.png)
 
 
 

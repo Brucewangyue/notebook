@@ -32,6 +32,8 @@ Spring Cloud中国社区：http://springcloud.cn/
 
 [仓库地址](https://github.com/alibaba/spring-cloud-alibaba/blob/2021.x/README-zh.md)
 
+[各组件使用大纲](https://www.processon.com/view/link/60519545f346fb348a97c9d5#map)
+
 Spring Cloud Alibaba 也是一套微服务解决方案，包含开发分布式应用微服务的必需组件
 
 依托 Spring Cloud Alibaba，您只需要添加一些注解和少量配置，就可以将 Spring Cloud 应用接入阿里微服务解决方案，通过阿里中间件来迅速搭建分布式应用系统

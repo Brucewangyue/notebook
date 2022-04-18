@@ -416,7 +416,8 @@ protected final void parse(AnnotationMetadata metadata, String beanName) throws 
 } 
 
 protected void processConfigurationClass(ConfigurationClass configClass) throws IOException { 
-    //判断是否需要跳过 
+    // 判断是否需要跳过 
+    // 根据配置的ConditionalXXX判断是否跳过当前
     if (this.conditionEvaluator.shouldSkip(configClass.getMetadata(), ConfigurationPhase.PARSE_CONFIGURAT ION)) { 
         return;
     } 

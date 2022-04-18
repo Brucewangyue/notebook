@@ -2,6 +2,17 @@
 
 
 
+```
+LoggingApplicationListener
+BackgroundPreinitializer
+```
+
+![image-20220418212734950](assets/image-20220418212734950.png)
+
+```
+ConfigFileApplicationListener
+```
+
 
 
 ## 自动装配原理
@@ -114,6 +125,14 @@ org.springframework.boot.autoconfigure.batch.BatchAutoConfiguration,\
 [springboot所有自动配置类列表](https://docs.spring.io/spring-boot/docs/current/reference/html/auto-configuration-classes.html#appendix.auto-configuration-classes)
 
 后续： @EnableAutoConfiguration注解通过@SpringBootApplication被间接的标记在了Spring Boot的启动类上。在 SpringApplication.run(...)的内部就会执行selectImports()方法，找到所有JavaConfig自动配置类的全限定名对应的class，然后将所有自动配置类加载到Spring容器中
+
+
+
+### 入口
+
+![image-20220418225957284](assets/image-20220418225957284.png)
+
+![image-20220418232142318](assets/image-20220418232142318.png)
 
 ### HttpEncodingAutoConfiguration
 

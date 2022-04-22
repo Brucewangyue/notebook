@@ -179,12 +179,6 @@ Nacos 0.8.0版本完善了监控系统，支持通过暴露metrics数据接入�
 
 ![image-20220418102635287](assets/image-20220418102635287.png)
 
-
-
-## ConfigService 配置中心
-
-
-
 ## NacosClient
 
 ### 基础搭建
@@ -254,4 +248,181 @@ Nacos 0.8.0版本完善了监控系统，支持通过暴露metrics数据接入�
        return new RestTemplate(); 
    }
    ```
+
+
+
+## ConfigService 配置中心
+
+Nacos 提供用于存储配置和其他元数据的 key/value 存储，为分布式系统中的外部化配置提供服务器端和客户端支持。使 用 Spring Cloud Alibaba Nacos Config，您可以在 Nacos Server 集中管理你 Spring Cloud 应用的外部属性配置
+
+![image-20220422103819257](assets/image-20220422103819257.png)
+
+### 快速开始
+
+准备配置，nacos server中新建nacos­config.properties
+
+![image-20220422103858672](assets/image-20220422103858672.png)
+
+![image-20220422103914314](assets/image-20220422103914314.png)
+
+### 搭建nacos-config服务
+
+通过 Nacos Server 和 spring-cloud-starter-alibaba-nacos-config 实现配置的动态变更
+
+1. 引入依赖
+
+   ```xml
+   <dependency> 
+       <groupId>com.alibaba.cloud</groupId> 
+       <artifactId>spring‐cloud‐starter‐alibaba‐nacos‐config</artifactId> 
+   </dependency>
+   ```
+
+2. 添加bootstrap.properties
+
+   ```properties
+   spring.application.name=nacos‐config
+   # 配置中心地址
+   spring.cloud.nacos.config.server‐addr=127.0.0.1:8848 
+   # dataid 为 yaml 的文件扩展名配置方式
+   # `${spring.application.name}.${file‐extension:properties}` 
+   spring.cloud.nacos.config.file‐extension=yaml
+   #profile粒度的配置 `${spring.application.name}‐${profile}.${file‐extension:properties}` 
+   spring.profiles.active=prod
+   ```
+
+3. 启动服务，测试微服务是否使用配置中心的配置
+
+   ```java
+   @SpringBootApplication 
+   public class NacosConfigApplication { 
+       public static void main(String[] args) { 
+           ConfigurableApplicationContext applicationContext = SpringApplication.run(NacosConfigApplication.class, args); 
+           String userName = applicationContext.getEnvironment().getProperty("user.name"); 
+           String userAge = applicationContext.getEnvironment().getProperty("user.age"); 
+           System.out.println("user name :"+userName+"; age: "+userAge); 
+       } 
+   }
+   ```
+
+   ![image-20220422105108256](assets/image-20220422105108256.png)
+
+### Config相关配置
+
+Nacos 数据模型 Key 由三元组唯一确定, Namespace默认是空串，公共命名空间（public），分组默认是DEFAULT_GROUP 
+
+![image-20220422105300283](assets/image-20220422105300283.png)
+
+- **配置的动态更新**
+
+  ```java
+  @SpringBootApplication 
+  public class NacosConfigApplication { 
+      public static void main(String[] args) throws InterruptedException { 
+          ConfigurableApplicationContext applicationContext = SpringApplication.run(NacosConfigApplication.class, args); 
+          
+          //当动态配置刷新时，会更新到 Enviroment中，因此这里每隔一秒中从Enviroment中获取配置 
+          while(true) { 
+              String userName = applicationContext.getEnvironment().getProperty("user.name"); 
+              String userAge = applicationContext.getEnvironment().getProperty("user.age"); 
+              System.err.println("user name :" + userName + "; age: " + userAge); 
+              TimeUnit.SECONDS.sleep(1); 
+          } 
+      } 
+  }
+  ```
+
+  
+
+- **profile粒度配置**
+
+  在加载配置的时候，不仅仅加载了以 dataid 为${spring.application.name}.${file-extension} 为前缀的基础配置，还加载了dataid为${spring.application.name}-${profile}.${file-extension} 的基础配置。在日常开发中如果遇到多套环境下的不同配置，可以通过Spring 提供的 ${spring.profiles.active} 这个配置项来配置
+
+  
+
+- **自定义 namespace 的配置**
+
+  用于进行租户粒度的配置隔离。
+
+  不同的命名空间下，可以存在相同的 Group 或 Data ID 的配置。
+
+  Namespace 的常用场景之一是不同环境的配置的区分隔离，例如开发测试环境和生产环境的资源（如配置、服务）隔离等。 
+
+  在没有明确指定 ${spring.cloud.nacos.config.namespace} 配置的情况下， 默认使用的是 Nacos 上 Public 这个 namespace。如果需要使用自定义的命名空间，可以通过以下配置来实现：
+
+  ```properties
+  spring.cloud.nacos.config.namespace=71bb9785‐231f‐4eca‐b4dc‐6be446e12ff8
+  ```
+
+  
+
+- **自定义 Group 的配置**
+
+  Group是组织配置的维度之一。通过一个有意义的字符串（如 Buy 或 Trade ）对配置集进行分组，从而区分 Data ID 相同的配置集。当您在 Nacos 上创建一个配置时，如果未填写配置分组的名称，则配置分组的名称默认采用 DEFAULT_GROUP 。
+
+  配置分组的常见场景：不同的应用或组件使用了相同的配置类型，如 database_url 配置和 MQ_topic 配置
+
+  在没有明确指定 ${spring.cloud.nacos.config.group} 配置的情况下，默认是DEFAULT_GROUP 。如果需要自定义自己的Group，可以通过以下配置来实现
+
+  ```properties
+   spring.cloud.nacos.config.group=DEVELOP_GROUP
+  ```
+
+  
+
+- **自定义扩展的 Data Id 配置**
+
+  通过自定义扩展的 Data Id 配置，既可以解决多个应用间配置共享的问题，又可以支持一个应用有多个配置文件
+
+  ```properties
+  # 自定义 Data Id 的配置 
+  #不同工程的通用配置 支持共享的 DataId 
+  spring.cloud.nacos.config.sharedConfigs[0].data‐id= common.yaml 
+  spring.cloud.nacos.config.sharedConfigs[0].group=REFRESH_GROUP
+  spring.cloud.nacos.config.sharedConfigs[0].refresh=true 
+  # config external configuration 
+  # 支持一个应用多个 DataId 的配置 
+  spring.cloud.nacos.config.extensionConfigs[0].data‐id=ext‐config‐common01.properties 
+  spring.cloud.nacos.config.extensionConfigs[0].group=REFRESH_GROUP 
+  spring.cloud.nacos.config.extensionConfigs[0].refresh=true
+  spring.cloud.nacos.config.extensionConfigs[1].data‐id=ext‐config‐common02.properties 
+  spring.cloud.nacos.config.extensionConfigs[1].group=REFRESH_GROUP 
+  spring.cloud.nacos.config.extensionConfigs[1].refresh=true
+  ```
+
+  
+
+### 配置优先级
+
+目前提供了三种从 Nacos 拉取相关的配置。 
+
+- A: 通过内部相关规则(应用名、应用名+ Profile )自动生成相关的 Data Id 配置
+- B: 通过 spring.cloud.nacos.config.ext-config 的方式支持多个扩展 Data Id 的配置 
+- C: 通过 spring.cloud.nacos.config.shared-configs 支持多个共享 Data Id 的配置 
+
+**优先级关系是:A > B > C** 
+
+**优先级从高到低：**
+
+1.  nacos­config­product.yaml 精准配置
+2.  nacos­config.yaml 同工程不同环境的通用配置
+3.  ext­config: 不同工程 扩展配置
+4. shared­dataids 不同工程通用配置
+
+### @RefreshScope
+
+@Value注解可以获取到配置中心的值，但是无法动态感知修改后的值，需要利用@RefreshScope注解
+
+```java
+@RestController 
+@RefreshScope 
+public class TestController { 
+    @Value("${common.age}")
+    private String age; 
+    @GetMapping("/common") 
+    public String hello() { 
+        return age; 
+    } 
+}
+```
 

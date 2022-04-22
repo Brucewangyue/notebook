@@ -290,4 +290,80 @@ Feign发起调用真正执行逻辑：**feign.Client#execute （扩展点）**
 
 关于配置可参考源码： org.springframework.cloud.openfeign.FeignAutoConfiguration
 
+![image-20220421164745170](assets/image-20220421164745170.png)
+
 测试：调用会进入feign.okhttp.OkHttpClient#execute
+
+### 配置 OkHttp
+
+1. 引入依赖
+
+   ```xml
+   <dependency>
+   	<groupId>io.github.openfeign</groupId>
+       <artifactId>feign‐okhttp</artifactId>
+   </dependency>
+   ```
+
+2. 然后修改yml配置，将 Feign 的 HttpClient 禁用，启用 OkHttp，配置如下
+
+   ```properties
+   feign.okhttp.enabled=true
+   ```
+
+关于配置可参考源码： org.springframework.cloud.openfeign.FeignAutoConfiguration
+
+![image-20220421165011670](assets/image-20220421165011670.png)
+
+### 配置GZIP
+
+开启压缩可以有效节约网络资源，提升接口性能，我们可以配置 GZIP 来压缩数据
+
+```properties
+feign.compression.request.enabled=true
+# 配置压缩的类型
+feign.compression.request.mime‐types=text/xml,application/xml,application/json
+# 最小压缩值
+feign.compression.request.min‐request‐size=2048
+feign.compression.response.enabled=true
+```
+
+注意：只有当 Feign 的 Http Client 不是 okhttp3 的时候，压缩才会生效，配置源码在 FeignAcceptGzipEncodingAutoConfiguration
+
+![image-20220421165240774](assets/image-20220421165240774.png)
+
+核心代码就是 @ConditionalOnMissingBean（type="okhttp3.OkHttpClient"），表示 Spring BeanFactory 中不包含指定的 bean 时条件匹配，也就是没有启用 okhttp3 时才会进行压缩配置
+
+### 配置编解码器
+
+Feign 中提供了自定义的编码解码器设置，同时也提供了多种编码器的实现，比如 Gson、Jaxb、Jackson。我们可以用不同的编码解码器来处理数据的传输。如果你想传输 XML 格式的数据，可以自定义 XML 编码解码器来实现获取使用官方提供的 Jaxb
+
+**扩展点：Encoder & Decoder**
+
+- **Java配置方式**
+
+  ```java
+  @Bean 
+  public Decoder decoder() { 
+      return new JacksonDecoder(); 
+  } 
+  
+  @Bean 
+  public Encoder encoder() { 
+      return new JacksonEncoder(); 
+  }
+  ```
+
+- **配置文件方式**
+
+  ```yaml
+  feign:
+    client:
+      config:
+        server-order:
+          encoder: feign.jackson.JacksonEncoder
+          decoder: feign.jackson.JacksonDecoder
+  ```
+
+  
+

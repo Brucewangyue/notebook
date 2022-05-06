@@ -125,7 +125,7 @@ vi out.1350
 
 
 
-mmap 内存映射，就是直接将数据写到内核的pagecache ，不需要想io那样通过write系统调用，产生用户态到内核态的切换造成的性能损耗
+mmap 内存映射，就是直接将数据写到内核的pagecache ，不需要向io那样通过write系统调用，产生用户态到内核态的切换造成的性能损耗
 
 
 
@@ -745,7 +745,7 @@ public class SocketNIO {
                 client.configureBlocking(false); 
                 int port = client.socket().getPort();
                 System.out.println("client..port: " + port);
-                .add(client);
+                clients.add(client);
             }
 
             // 堆外内存

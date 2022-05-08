@@ -79,7 +79,7 @@ redis与内核之间使用的是epoll(多路复用)技术
 
 2、内存有限，随着访问变化，应该淘汰掉冷数据
 
-**面试题：redis提供了什么淘汰算法？参考《回售策略》**
+**面试题：redis提供了什么淘汰算法？参考《回收策略》**
 
 
 
@@ -198,7 +198,7 @@ STRLEN k1
 set k2 9
 STRLEN k2
 # 1
-# 常识：1字节=8位 可以标识 -128~127
+# 常识：1字节=8位 可以表示 -128~127
 set k3 中
 STRLEN k3
 # 3
@@ -431,6 +431,10 @@ List 有顺序，可重复
 
 
 
+常用于对象间的关联关系：1对1、1对多
+
+
+
 **SRANDMEMBER** 
 
 如果命令执行时，只提供了 `key` 参数，那么返回集合中的一个随机元素。
@@ -479,13 +483,11 @@ skip list 跳表  todo 深入学习
  - `maxmemory-policy noeviction`  :
 
    	-	*volatile-lru*：使用近似的LRU驱逐，只使用有过期设置的键，常用
-      	-	*allkeys-lru*：使用近似LRU驱逐任意键
-              	-	*volatile-lfu*：使用近似的LFU驱逐，只使用有过期设置的键
-            	-	*allkeys-lfu*：使用近似LFU驱逐任意键
-            	-	*volatile-random*：移除一个有过期设置的随机键
-            	-	*allkeys-random*：移除一个随机的键，任何键
-            	-	*volatile-ttl*：删除与过期时间最近的密钥(次要TTL)
-            	-	*noeviction*：不要驱逐任何东西，只是在写操作时返回一个错误，只适合拿redis做为数据库时
+       -	*allkeys-lru*：使用近似LRU驱逐任意键
+       -	*volatile-random*：移除一个有过期设置的随机键
+       -	*allkeys-random*：移除一个随机的键，任何键
+       -	*volatile-ttl*：删除与过期时间最近的密钥(次要TTL)
+       -	*noeviction*：不要驱逐任何东西，只是在写操作时返回一个错误，只适合拿redis做为数据库时
 
    
 
@@ -619,11 +621,9 @@ bf.exists abc
   # 父进程调用脚本
   ```
 
+根据以上的常识，是不是redis在需要快照的时候，创建一个子进程（内核函数fork()），那么是不是就自动的有了那个时刻的快照？假如redis此时内存为10G，内存空间够不够，创建子进程的速度是什么程度？
 
-
-​		根据以上的常识，是不是redis在需要快照的时候，创建一个子进程（内核函数fork()），那么是不是就自动的有了那个时刻的快照？假如redis此时内存为10G，内存空间够不够，创建子进程的速度是什么程度？
-
-​		如图8:00时刻开始做快照，8:10修改了值
+如图8:00时刻开始做快照，8:10修改了值
 
 ![image-20211217153040564](assets/image-20211217153040564.png)
 
@@ -704,7 +704,7 @@ redis-check-rdb *.rdb
 
 ### 集群
 
-单机、单节点、但实例的问题：
+单机、单节点、单实例的问题：
 
 - 1、单点故障
 - 2、容量有限
@@ -1023,15 +1023,15 @@ incrby userid 1000
 
 [int类型，incr方法](https://mp.weixin.qq.com/s?__biz=MzI4NTM1NDgwNw==&mid=2247500365&idx=1&sn=7abfd8b30427d4ac15bb351c3dbb640c&scene=21#wechat_redirect)
 
-[例如：文章的阅读量、微博点赞数、允许一定的延迟，先写入Redis再定时同步到数据库](https://mp.weixin.qq.com/s?__biz=MzI4NTM1NDgwNw==&mid=2247500365&idx=1&sn=7abfd8b30427d4ac15bb351c3dbb640c&scene=21#wechat_redirect)
+[例如：文章的阅读量、微博点赞数、允许一定的延迟，先写入Redis再定时同步到数据库]()
 
 
 
 ### 限流
 
-[int类型，incr方法](https://mp.weixin.qq.com/s?__biz=MzI4NTM1NDgwNw==&mid=2247500365&idx=1&sn=7abfd8b30427d4ac15bb351c3dbb640c&scene=21#wechat_redirect)
+[int类型，incr方法]()
 
-[以访问者的ip和其他信息作为key，访问一次增加一次计数，超过次数则返回false](https://mp.weixin.qq.com/s?__biz=MzI4NTM1NDgwNw==&mid=2247500365&idx=1&sn=7abfd8b30427d4ac15bb351c3dbb640c&scene=21#wechat_redirect)
+[以访问者的ip和其他信息作为key，访问一次增加一次计数，超过次数则返回false]()
 
 
 
@@ -1146,7 +1146,7 @@ sadd brand:ios iPhone11
 
 sad screensize:6.0-6.24 iPhone11
 
-sad screentype:lcd iPhone 11
+sad screentype:lcd iPhone11
 
 # 筛选商品，苹果的、ios的、屏幕在6.0-6.24之间的，屏幕材质是LCD屏幕
 sinter brand:apple brand:ios screensize:6.0-6.24 screentype:lcd

@@ -341,7 +341,7 @@ jmap -histo:live pid
 
 youngGC频繁一般是短周期小对象较多，先考虑是不是Eden区/新生代设置的太小了，看能否通过调整-Xmn、-XX:SurvivorRatio等参数设置来解决问题。如果参数正常，但是young gc频率还是太高，就需要使用Jmap和MAT对dump文件进行进一步排查了
 
-### youngGC耗时过长
+### YoungGC耗时过长
 
 耗时过长问题就要看GC日志里耗时耗在哪一块了。以G1日志为例，可以关注Root Scanning、Object Copy、Ref Proc等阶段。Ref Proc耗时长，就要注意引用相关的对象。Root Scanning耗时长，就要注意线程数、跨代引用。Object Copy则需要关注对象生存周期。而且耗时分析它需要横向比较，就是和其他项目或者正常时间段的耗时比较。比如说图中的Root Scanning和正常时间段比增长较多，那就是起的线程太多了
 
@@ -355,7 +355,9 @@ G1中更多的还是mixedGC，但mixedGC可以和youngGC思路一样去排查。
 
 另外，我们可以在启动参数中配置-XX:HeapDumpPath=/xxx/dump.hprof来dump fullGC相关的文件，并通过jinfo来进行gc前后的dump
 
-> jinfo -flag +HeapDumpBeforeFullGC pidjinfo -flag +HeapDumpAfterFullGC pid
+> jinfo -flag +HeapDumpBeforeFullGC pid 
+>
+> jinfo -flag +HeapDumpAfterFullGC pid
 
 这样得到2份dump文件，对比后主要关注被gc掉的问题对象来定位问题
 

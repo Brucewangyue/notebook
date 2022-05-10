@@ -46,19 +46,6 @@ HashTable和Vector 自带锁，现在都不用，JDK1.0就存在
 transient Node<K,V>[] table;
 ```
 
-### hash算法
-
-```java
-// key的hash值 异或 key的hash值右移16位
-static final int hash(Object key) {
-        int h;
-        return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
-}
-// 作用：
-// 从hash寻址算法中可以看出来，当数组长度比较短的时候（假如是16），无论hash值的高位（二进制的5位往左），如何变都没有影响到计算
-// 通过以上的hash()可以让高位参与运算，让key能够在hash表中更散列
-```
-
 ### 2的次方算法
 
 指定一个数，计算出这个数最接近的下个2的次方的数，保证hash表的长度是2的次方
@@ -83,6 +70,18 @@ static final int tableSizeFor(int cap) {
 **为什么数组长度一定要2的次方？**
 
 这样做hash寻址的时候，会让数组下标不会超出范围，这样使得直接用求余数的方式找下标更高效
+
+```java
+// 数组桶位长度是2^n次方，表示二进制中除了某一位是1，其余都是0
+// 8
+...0001000
+// n-1，表示，1位的右边全部变为0
+...0000111
+// 这样跟 key的hash做 &运算（同为1才为1）
+// 那么任何一个hash值 &上 ...0000111 都不会大于 ...0001000
+```
+
+
 
 ### 构造函数
 
@@ -115,6 +114,7 @@ public V put(K key, V value) {
 // onlyIfAbsent 如果是真则替换旧值
 final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
                boolean evict) {
+    // p 桶位首节点
     Node<K,V>[] tab; Node<K,V> p; int n, i;
     
     // 新的HashMap第一次put
@@ -129,29 +129,38 @@ final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
     // n-1:       0000 0000 0000 0000 0000 0100 0000 1111
 	// &:         0000 0000 0000 0000 0000 0100 0000 1010
     // 这里的关键点是，数组的长度必须是2的次方，这样减1再做与运算，就能限制数组的下标在有效范围内
-    if ((p = tab[i = (n - 1) & hash]) == null) 
+    if ((p = tab[i = (n - 1) & hash]) == null) // 首节点为空，直接插入
         tab[i] = newNode(hash, key, value, null);
-    else {
+    else { // 首节点不为空，开始处理碰撞
         Node<K,V> e; K k;
+        // 如果新key和key.hash == 当前桶位首节点key和key.hash，记录首节点到e
         if (p.hash == hash &&
             ((k = p.key) == key || (key != null && key.equals(k))))
             e = p;
-        else if (p instanceof TreeNode)
+        else if (p instanceof TreeNode) // 判断是否为空黑树的节点，按红黑树方式添加节点e
             e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
-        else {
+        else { // 首节点是链表
+            // 遍历链表，直到尾节点，创建新节点加入到尾部
             for (int binCount = 0; ; ++binCount) {
                 if ((e = p.next) == null) {
                     p.next = newNode(hash, key, value, null);
+                    // 判断链表长度是否 >= 树化默认值8，是就开始进入转红黑树判断
                     if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
                         treeifyBin(tab, hash);
                     break;
                 }
+                
+                // 节点遍历时，看当前遍历到的链表节点是否key和key.hash == 新key和key.hash，是就记录到e
                 if (e.hash == hash &&
                     ((k = e.key) == key || (key != null && key.equals(k))))
                     break;
+                
+                // 首节点指针指向后继节点
                 p = e;
             }
         }
+        
+        // 不为null 说明新key在之前已经存在，根据onlyIfAbsent参数看是否需要替换
         if (e != null) { // existing mapping for key
             V oldValue = e.value;
             if (!onlyIfAbsent || oldValue == null)
@@ -160,13 +169,86 @@ final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
             return oldValue;
         }
     }
+    
     ++modCount;
+    // 总元素数量+1，如果大于容量的最大阈值，进行扩容
     if (++size > threshold)
         resize();
     afterNodeInsertion(evict);
     return null;
 }
 ```
+
+
+
+### key的hash算法
+
+- 根据 (key == null) ? 0  ：知道HashMap的key可以为null
+  - 对比HashTable：HashTable对Key直接hashCode()，如果key为null，会抛出异常
+- key != null
+  - 先计算key的hashCode
+  - 对hashCode进行扰动处理，做异或运算（无进位相加）
+  - hashCode向右移动16位：0000000000000000 ...(hasCode高16位)
+
+```java
+// key的hash值 异或 key的hash值右移16位
+static final int hash(Object key) {
+        int h;
+        return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
+}
+// 作用：
+// 从hash寻址算法中可以看出来，当数组长度比较短的时候（假如是16），无论hash值的高位（二进制的5位往左），如何变都没有影响到计算
+// 通过以上的hash()可以让高位参与运算，让key能够在hash表中更散列
+```
+
+**为什么是右移16位？**
+
+这个hash最终是要和数组的长度做 &运算 ，而数组的长度大部分时间都不会到达2^16
+
+如果不右移16位，那么key的hashCode可能永远也不会用于 &运算，这样HashMap的桶位可能不够散列
+
+<img src="assets/image-20220510145548511.png" alt="image-20220510145548511" style="zoom:80%;" />
+
+**为什么是做异或运算，不是与运算、或运算？**
+
+看图片
+
+- 与运算，75%的概率是 0，25%的概率是1
+- 或运算，25%的概率是0，75%的概率是1
+- 异或运算，50%的概率是0，50%的概率是1
+
+![image-20220510153110036](assets/image-20220510153110036.png)
+
+
+
+### treeifyBin 转红黑树
+
+```java
+final void treeifyBin(Node<K,V>[] tab, int hash) {
+    int n, index; Node<K,V> e;
+    // 先判断table的长度是否小于 64，小于则扩容
+    if (tab == null || (n = tab.length) < MIN_TREEIFY_CAPACITY)
+        resize();
+    else if ((e = tab[index = (n - 1) & hash]) != null) {
+        // 数组长度大于64，且当前桶位的链、表大于8，开始转红黑树
+        TreeNode<K,V> hd = null, tl = null;
+        do {
+            TreeNode<K,V> p = replacementTreeNode(e, null);
+            if (tl == null)
+                hd = p;
+            else {
+                p.prev = tl;
+                tl.next = p;
+            }
+            tl = p;
+        } while ((e = e.next) != null);
+        if ((tab[index] = hd) != null)
+            hd.treeify(tab);
+    }
+}
+```
+
+
 
 ### resize方法
 
@@ -177,16 +259,19 @@ final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
 
 final Node<K,V>[] resize() {
     Node<K,V>[] oldTab = table;
+    // 记住扩容前的数组长度、最大容量(扩容阈值)
     int oldCap = (oldTab == null) ? 0 : oldTab.length;
     int oldThr = threshold;
     int newCap, newThr = 0;
     if (oldCap > 0) {
+        // 超过java最大容量(1<<30)
         if (oldCap >= MAXIMUM_CAPACITY) {
             threshold = Integer.MAX_VALUE;
             return oldTab;
         }
+        // 长度和最大容量都扩容为原来2倍
         else if ((newCap = oldCap << 1) < MAXIMUM_CAPACITY &&
-                 oldCap >= DEFAULT_INITIAL_CAPACITY)
+                 oldCap >= DEFAULT_INITIAL_CAPACITY) // 16
             newThr = oldThr << 1; // double threshold
     }
     
@@ -209,27 +294,38 @@ final Node<K,V>[] resize() {
                   (int)ft : Integer.MAX_VALUE);
     }
     
+    // 更新扩容阈值
     threshold = newThr;
     
     // 下面是将旧的hash表中的所有元素 重新hash到新的hash表中
     @SuppressWarnings({"rawtypes","unchecked"})
+    
+    // 按扩容后的长度创建新数组
     Node<K,V>[] newTab = (Node<K,V>[])new Node[newCap];
     table = newTab;
     if (oldTab != null) {
+        // 遍历老数组元素
         for (int j = 0; j < oldCap; ++j) {
             Node<K,V> e;
+            // 如果老数组对应索引上有元素，e指向链表头
             if ((e = oldTab[j]) != null) {
                 oldTab[j] = null;
+                // 如果链表只有一个头节点，直接计算新数组中的位置
                 if (e.next == null)
                     newTab[e.hash & (newCap - 1)] = e;
                 else if (e instanceof TreeNode)
+                    // 如果是树结构，需要单独处理
                     ((TreeNode<K,V>)e).split(this, newTab, j, oldCap);
                 else { // preserve order
+                    // 处理存在多个节点的链表(存在哈希冲突的链表)
                     Node<K,V> loHead = null, loTail = null;
                     Node<K,V> hiHead = null, hiTail = null;
                     Node<K,V> next;
+                    // 循环处理链表上的节点
                     do {
                         next = e.next;
+                        // key.hash和久数组长度 与运算 
+                        // == 0 表示 key.hash 在 oldCap中1位 是0
                         if ((e.hash & oldCap) == 0) {
                             if (loTail == null)
                                 loHead = e;
@@ -260,6 +356,34 @@ final Node<K,V>[] resize() {
     return newTab;
 }
 ```
+
+**为什么1.8的数组长度扩容时，元素的移动通过判断  e.hash & oldCap？**
+
+```sh
+# 旧数组长度假设是8
+001000
+# 假设key的hash
+...010
+000111
+# 那么桶位就是2
+000010
+
+## 1.假设key的第4位是0
+..0010
+001111  ## 按原来的方式：与扩容后的长度-1 （因为扩容是2的次幂，所以现在是4个1）
+000010  ## 可以看出，如果key.hash第4位是0，那么最终在新数组中的桶位不变
+
+## 2.假设key的第4位是1
+..1010
+001111  
+001010  ## 可以看出，最终key.hash会放入 10 = 2 + 8(旧数组长度)的位置
+
+## 那其实旧的位置不需要判断，只需要判断key.hash的下一位是否和原长度本身 与运算后 是否为0 就知道key.hash
+## 下一位是否是1：如果结果是0，那就不是1，如果结果不是0，那就是1
+## 如果是1，那就用原桶位+旧数组长度
+```
+
+
 
 ### JDK8的元素迁移
 

@@ -2,3 +2,10 @@ Cannot connect to the Maven process. Try again later. If the problem persists, c
 可能的原因：项目的jdk和jdk for importer版本不一致
 ![image-20220407100236502](assets/image-20220407100236502.png)
 
+
+
+
+
+### jar包冲突解决
+
+通过 Maven Dependency Tree 

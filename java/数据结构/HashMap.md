@@ -13,7 +13,7 @@ hashmap多线程操作同时调用put()方法后可能导致get()死循环,从�
 
 多个线程put的时候造成了某个key值Entry key List的死循环，然后再调用put方法操作的时候就会进入链表的死循环内
 
-**解决办法：HashTable、ConcurrentHashMap、Collections.synchronizedMap(hashMap)**  
+**解决办法：HashTable、ConcurrentHashMap、Collections.synchronizedMap(hashMap)** 
 HashTable和Vector 自带锁，现在都不用，JDK1.0就存在
 
 
@@ -314,7 +314,7 @@ final Node<K,V>[] resize() {
                 if (e.next == null)
                     newTab[e.hash & (newCap - 1)] = e;
                 else if (e instanceof TreeNode)
-                    // 如果是树结构，需要单独处理
+                    // 如果是树结构，需要单独处理，如果有元素移走，那么会退化成链表
                     ((TreeNode<K,V>)e).split(this, newTab, j, oldCap);
                 else { // preserve order
                     // 处理存在多个节点的链表(存在哈希冲突的链表)
@@ -325,7 +325,7 @@ final Node<K,V>[] resize() {
                     do {
                         next = e.next;
                         // key.hash和久数组长度 与运算 
-                        // == 0 表示 key.hash 在 oldCap中1位 是0
+                        // == 0 表示放在原索引
                         if ((e.hash & oldCap) == 0) {
                             if (loTail == null)
                                 loHead = e;
@@ -334,6 +334,7 @@ final Node<K,V>[] resize() {
                             loTail = e;
                         }
                         else {
+                            // 放在新索引（原索引+oldCap）
                             if (hiTail == null)
                                 hiHead = e;
                             else
@@ -382,6 +383,68 @@ final Node<K,V>[] resize() {
 ## 下一位是否是1：如果结果是0，那就不是1，如果结果不是0，那就是1
 ## 如果是1，那就用原桶位+旧数组长度
 ```
+
+
+
+### split 红黑树拆分
+
+- 扩容的时候，会迁移元素到新桶位
+
+```java
+// 扩容后，红黑树的hash分布，只可能存在于两个位置：原索引位置、原索引+oldCap(旧数组长度)
+final void split(HashMap<K,V> map, Node<K,V>[] tab, int index, int bit) {
+    TreeNode<K,V> b = this; // 拿到调用次方法的节点（就是红黑树的头节点）
+    // Relink into lo and hi lists, preserving order
+    TreeNode<K,V> loHead = null, loTail = null; // 存储索引位置：原索引位置 的节点
+    TreeNode<K,V> hiHead = null, hiTail = null; // 存储索引位置：新位置 的节点
+    int lc = 0, hc = 0;
+    // 1.从这个节点开始，遍历后继节点
+    for (TreeNode<K,V> e = b, next; e != null; e = next) {
+        next = (TreeNode<K,V>)e.next; // 拿到后继节点
+        e.next = null; // 将后继节点索引断开，
+        // 2.与运算 bit==oldCap
+        if ((e.hash & bit) == 0) {
+            if ((e.prev = loTail) == null) // 如果loTail为空，头节点
+                loHead = e;  // loHead 指向第一个节点
+            else
+                loTail.next = e;  // 否则将当前节点添加到链表尾节点
+            loTail = e; // 并且移动尾指针到当前节点
+            ++lc; // 统计原索引位置的节点个数
+        }
+        else {
+            // 这里要放在新索引
+            if ((e.prev = hiTail) == null) // 如果hi链表存在尾节点
+                hiHead = e; // 将当前节点的前继节点指向hi链表的尾指针
+            else
+                hiTail.next = e;
+            hiTail = e; // 将尾指针指向当前节点
+            ++hc; // 统计新索引位置的节点个数
+        }
+    }
+    // 如果lo链表头节点不为空
+    if (loHead != null) {
+        if (lc <= UNTREEIFY_THRESHOLD) // 判断元素个数，如果小于6
+            tab[index] = loHead.untreeify(map); // 链表化
+        else {
+            tab[index] = loHead; // 将lo链表的头放入桶位，重新构建红黑树
+            if (hiHead != null) // (else is already treeified)
+                loHead.treeify(tab);
+        }
+    }
+    // 同上
+    if (hiHead != null) {
+        if (hc <= UNTREEIFY_THRESHOLD)
+            tab[index + bit] = hiHead.untreeify(map); // index + bit 就是新桶位
+        else {
+            tab[index + bit] = hiHead;
+            if (loHead != null)
+                hiHead.treeify(tab);
+        }
+    }
+}
+```
+
+
 
 
 

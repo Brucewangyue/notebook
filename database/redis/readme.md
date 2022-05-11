@@ -570,15 +570,30 @@ bf.exists abc
 # 结果是1 表示数据库有
 ```
 
-
-
-## 高可用
-
-### 数据持久化
+## 数据持久化
 
 ​	redis中 rdb和aof可以同时开，不过恢复的时候只会用aof恢复，因为aof数据相对完整
 
-#### **一：快照/副本（RDB）**
+### 快照/副本（RDB）
+
+##### 文件结构
+
+
+
+##### 自动快照
+
+```properties
+#
+save 60
+```
+
+
+
+##### 加载方式
+
+redis启动的时候自动读取rdb文件
+
+
 
 ​		假如有个需求要对当前时间之前（如8:00）的数据做快照，有一个Key，8点前值是 a，在快照的过程中被修改成了 z，那么这个快照该保存哪个数据？如何能保存？
 
@@ -658,15 +673,15 @@ redis-check-rdb *.rdb
 
 ​		类似于java序列化、恢复速度相对快
 
-
-
-#### **二：日志（AOF）**
+### 日志（AOF）
 
 ​		AOF（RDB全量+AOF增量），redis所有写操作记录到文件中
 
 ​		如果有一个redis运行了10年，然后挂了，AOF多大？恢复要多久？如果这10年就运行两个命令 一个设置key，一个删除key，那么AOF文件多大？有什么方案可以让AOF日志文件足够小？
 
 ​		凡是日志系统都有这个问题HDFS、FSIMAGE+EDITS.log：让日志只记录增量，合并的过程
+
+##### AOF重写
 
 ​		**redis 4.0版本后，重写（BGREWRITEAOF）将内存中的老数据RDB到aof文件的开头，将新的增量的以指令的方式Append到aof文件**
 
@@ -692,6 +707,14 @@ redis-check-rdb *.rdb
 
 ![image-20211217164751281](assets/image-20211217164751281.png)
 
+##### 加载方式
+
+redis创建一个伪客户端，伪客户端读取aof的命令，逐条给redis服务端发送命令
+
+
+
+
+
 **弊端**
 
 体量无限变大
@@ -702,7 +725,11 @@ redis-check-rdb *.rdb
 
 丢失数据少
 
-### 集群
+
+
+## 集群
+
+
 
 单机、单节点、单实例的问题：
 
@@ -724,137 +751,199 @@ X轴可以解决单点故障，但带来了新的问题：如何保证数据一�
 
 
 
-1. **主从复制**
+### 主从复制
 
-   - 从节点不能写，只能读 **（可以配置为支持读写）**
-   - 从节点跟随主节点前，会把自己的数据先清除
-   - 主节点知道自己的从节点有哪些
-   - **主节点挂了，从节点不会自动切换为主节点，需要人工介入**
+- 从节点不能写，只能读 **（可以配置为支持读写）**
+- 从节点跟随主节点前，会把自己的数据先清除
+- 主节点知道自己的从节点有哪些
+- **主节点挂了，从节点不会自动切换为主节点，需要人工介入**
 
-   Docker搭建
+#### Redis 2.7版本同步流程
 
-   ```sh
-   # 配置文件
-   bind 0.0.0.0
-   port 6379
-   daemonize yes
-   dir /data
-   logfile "/data"
-   
-   
-   # 创建网络，让这几个容器能互相访问
-   docker network create --subnet 172.38.0.0/16 redisnet
-   
-   # 运行3个redis容器
-   # 第一台主
-   docker run -d -v /root/conf-redis/replicate:/usr/local/etc/redis --net redisnet --name redis-m1 redis redis-server /usr/local/etc/redis/redis.conf
-   
-   # 第二台从，直接运行的时候就追随主
-   docker run -d -v /root/conf-redis/replicate:/usr/local/etc/redis --net redisnet --name redis-s1 redis redis-server /usr/local/etc/redis/redis.conf --replicaof redis-m1 6379
-   
-   # 第三台从，进入容器追随主
-   docker run -d -v /root/conf-redis/replicate:/usr/local/etc/redis --net redisnet --name redis-s2 redis redis-server /usr/local/etc/redis/redis.conf
-   
-   docker exec -it redis-s2 /bin/bash
-   redis-cli
-   set k1 1
-   # 通过命令追随
-   REPLICAOF redis-m1 6379
-   
-   # 追随完成后发现k1没了
-   # 查看从2的日志
-   Before turning into a replica, using my own master parameters to synthesize a cached master: I may be able to synchronize with the new master with just a partial transfer.
-   Connecting to MASTER redis-m1:6379
-   MASTER <-> REPLICA sync started
-   ...
-   receiving 189 bytes from master to disk
-   Flushing old data
-   Loading DB in memory
-   ...
-   # 从以上日志得知，追随主节点，会把自己节点内原有的数据清掉
-   
-   
-   # 查看主的日志
-   Replica 172.38.0.3:6379 asks for synchronization
-   Full resync requested by replica 172.38.0.3:6379
-   Replication backlog created, my new replication IDs are '9def6cd5f7f3825efb71028a135ef549a85229da' and '0000000000000000000000000000000000000000'
-   Starting BGSAVE for SYNC with target: disk
-   Background saving started by pid 18
-   DB saved on disk
-   RDB: 2 MB of memory used by copy-on-write
-   Background saving terminated with success
-   Synchronization with replica 172.38.0.3:6379 succeeded
-   
-   # 从以上得知，主节点是知道自己的从节点有哪些
-   
-   # 此时如果主节点挂了
-   docker stop redis-m1
-   
-   # 查看日志发现两个从节点并不会自主选举，而是在等主节点恢复
-   # 在从1上手动切换为主节点
-   REPLICAOF NO ONE
-   
-   # 在从2上手动重新跟随
-   REPLICAOF redis-s2 6379
-   ```
+1. 从节点给主节点发送 sync 命令
+2. 主节点开始执行BGSAVE
+3. 对于在BGSAVE期间的新命令，放入写缓冲区里面
+4. 主节点将新RDB文件发送给从节点
+5. 从节点加载RDB文件
+6. 主节点将写缓冲区里面的命令发送给从节点，从节点直接执行命令
 
-   
+**如果同步完成后，此时从节点断开了和主节点的连接，会有什么结果？**
 
-2. **哨兵**
+1. 从节点重新给主节点发送 sync 命令
+2. 主节点又要执行BGSAVE
+3. ...
 
-   哨兵就是用来解决，主从复制中需要人工介入的问题，一套哨兵可以监控多套主从复制集群（有点像keepalive）
+**如果从节点经常断开，那么就会造成主节点的频繁BGSAVE，严重影响性能**
 
-   - **监控（Monitoring）**：会不断地检查你的主服务器和从服务器是否运作正常
-   - **提醒（Notification）**：当被监控的某个 Redis 服务器出现问题时， Sentinel 可以通过 API 向管理员或者其他应用程序发送通知
-   - **自动故障迁移（Automatic failover）**：当一个主服务器不能正常工作时， Sentinel 会开始一次自动故障迁移操作， 它会将失效主服务器的其中一个从服务器升级为新的主服务器， 并让失效主服务器的其他从服务器改为复制新的主服务器； 当客户端试图连接失效的主服务器时， 集群也会向客户端返回新主服务器的地址， 使得集群可以使用新主服务器代替失效服务器
 
-   
 
-   启动服务：
+#### Redis 2.8版本同步流程
 
-   ```sh
-   # 最后的2表示判断失效2个sentinel同意（只要同意 Sentinel 的数量不达标，自动故障迁移就不会执行）
-   # mymaster 用来区分不同的redis监控集群
-   # 之所以哨兵的配置只需要一个redis主节点的地址端口就可以，是因为主节点记录了所有其他从节点的信息
-   
-   # 创建最简单的配置文件 sentinel.conf（源码中有默认配置文件）
-   port 16379
-   sentinel monitor mymaster 127.0.0.1 6379 2
-   
-   # 以下是扩展配置（可选）
-   # Sentinel 认为服务器已经断线所需的毫秒数
-   sentinel down-after-milliseconds mymaster 60000
-   sentinel failover-timeout mymaster 180000
-   # 指定了在执行故障转移时， 最多可以有多少个从服务器同时对新的主服务器进行同步， 这个数字越小， 完成故障转移所需的时间就越长
-   sentinel parallel-syncs mymaster 1
-   
-   sentinel monitor resque 192.168.1.3 6380 4
-   sentinel down-after-milliseconds resque 10000
-   sentinel failover-timeout resque 180000
-   sentinel parallel-syncs resque 5
-   
-   # 启动哨兵
-   redis-server /path/to/sentinel.conf --sentinel
-   
-   # 哨兵启动以后会重写配置文件，补全集群的节点信息
-   ```
+**从节点接入主节点**
 
-   
+- psync：分区同步命令
+- 复制偏移量、复制积压缓冲区（1MB）
+- 主节点ID、从节点ID
 
-   **哨兵之间是如何通信的？**
+1. 从节点给主节点发送psync
+2. 主节点根据从节点id判断是新节点，给从节点返回 +ForFullReSync
 
-   是通过在主节点开启了发布订阅
+**从节点意外断联**
 
-   ```sh
-   在主节点用命令可以看通信内容
-   PSUBSCRIBE *
-   ```
+从节点会带着自己的节点ID和偏移量发送给重新连接的主节点
 
-   ![image-20211220144129409](assets/image-20211220144129409.png)
+**全量同步还是增量同步？**
 
-   
+通过 复制偏移量、复制积压缓冲区（默认1MB）两个参数判断：
 
-3. **数据拆分**
+- 如果偏移量小于复制积压缓冲区，那么主服务器会给从服务器发送：+Continue，开始进行增量同步
+- 如果偏移量大于复制积压缓冲区，那么主服务器会给从服务器发送：+ForFullReSync，开始进行全量同步
+
+**复制积压缓冲区大小如何配置？**
+
+通过一些网络工具监控从节点重连主节点的平均时间，比如是5秒
+
+那么需要统计主服务器在5秒内的平均命令总字节流，比如是10MB的命令字节，那么 复制积压缓冲区 至少要设置成10MB，建议设置成2*10MB，防止突发的并发量上升
+
+
+
+#### 主从复制流程
+
+1. 从节点首先知道主节点的IP:PORT，通过 SlaveOf 命令追随主节点
+2. 从节点首先会给主节点发送PING命令
+   1. 如果返回的是PONG，说明网络没问题
+   2. 如果返回的是ERR，从节点需要自己断开连接，再次重新连接
+3. 验证用户名和密码（主节点开启AUTH认证，从节点需要提供用户名和密码）
+4. 从节点给主节点发送自己的监听端口
+5. 从节点给主节点发送：psync
+6. 开始同步
+
+
+
+#### Docker搭建
+
+```sh
+# 配置文件
+bind 0.0.0.0
+port 6379
+daemonize yes
+dir /data
+logfile "/data"
+
+
+# 创建网络，让这几个容器能互相访问
+docker network create --subnet 172.38.0.0/16 redisnet
+
+# 运行3个redis容器
+# 第一台主
+docker run -d -v /root/conf-redis/replicate:/usr/local/etc/redis --net redisnet --name redis-m1 redis redis-server /usr/local/etc/redis/redis.conf
+
+# 第二台从，直接运行的时候就追随主
+docker run -d -v /root/conf-redis/replicate:/usr/local/etc/redis --net redisnet --name redis-s1 redis redis-server /usr/local/etc/redis/redis.conf --replicaof redis-m1 6379
+
+# 第三台从，进入容器追随主
+docker run -d -v /root/conf-redis/replicate:/usr/local/etc/redis --net redisnet --name redis-s2 redis redis-server /usr/local/etc/redis/redis.conf
+
+docker exec -it redis-s2 /bin/bash
+redis-cli
+set k1 1
+# 通过命令追随
+REPLICAOF redis-m1 6379
+
+# 追随完成后发现k1没了
+# 查看从2的日志
+Before turning into a replica, using my own master parameters to synthesize a cached master: I may be able to synchronize with the new master with just a partial transfer.
+Connecting to MASTER redis-m1:6379
+MASTER <-> REPLICA sync started
+...
+receiving 189 bytes from master to disk
+Flushing old data
+Loading DB in memory
+...
+# 从以上日志得知，追随主节点，会把自己节点内原有的数据清掉
+
+
+# 查看主的日志
+Replica 172.38.0.3:6379 asks for synchronization
+Full resync requested by replica 172.38.0.3:6379
+Replication backlog created, my new replication IDs are '9def6cd5f7f3825efb71028a135ef549a85229da' and '0000000000000000000000000000000000000000'
+Starting BGSAVE for SYNC with target: disk
+Background saving started by pid 18
+DB saved on disk
+RDB: 2 MB of memory used by copy-on-write
+Background saving terminated with success
+Synchronization with replica 172.38.0.3:6379 succeeded
+
+# 从以上得知，主节点是知道自己的从节点有哪些
+
+# 此时如果主节点挂了
+docker stop redis-m1
+
+# 查看日志发现两个从节点并不会自主选举，而是在等主节点恢复
+# 在从1上手动切换为主节点
+REPLICAOF NO ONE
+
+# 在从2上手动重新跟随
+REPLICAOF redis-s2 6379
+```
+
+
+
+### 哨兵
+
+哨兵就是用来解决，主从复制中需要人工介入的问题，一套哨兵可以监控多套主从复制集群（有点像keepalive）
+
+- **监控（Monitoring）**：会不断地检查你的主服务器和从服务器是否运作正常
+- **提醒（Notification）**：当被监控的某个 Redis 服务器出现问题时， Sentinel 可以通过 API 向管理员或者其他应用程序发送通知
+- **自动故障迁移（Automatic failover）**：当一个主服务器不能正常工作时， Sentinel 会开始一次自动故障迁移操作， 它会将失效主服务器的其中一个从服务器升级为新的主服务器， 并让失效主服务器的其他从服务器改为复制新的主服务器； 当客户端试图连接失效的主服务器时， 集群也会向客户端返回新主服务器的地址， 使得集群可以使用新主服务器代替失效服务器
+
+
+
+启动服务：
+
+```sh
+# 最后的2表示判断失效2个sentinel同意（只要同意 Sentinel 的数量不达标，自动故障迁移就不会执行）
+# mymaster 用来区分不同的redis监控集群
+# 之所以哨兵的配置只需要一个redis主节点的地址端口就可以，是因为主节点记录了所有其他从节点的信息
+
+# 创建最简单的配置文件 sentinel.conf（源码中有默认配置文件）
+port 16379
+sentinel monitor mymaster 127.0.0.1 6379 2
+
+# 以下是扩展配置（可选）
+# Sentinel 认为服务器已经断线所需的毫秒数
+sentinel down-after-milliseconds mymaster 60000
+sentinel failover-timeout mymaster 180000
+# 指定了在执行故障转移时， 最多可以有多少个从服务器同时对新的主服务器进行同步， 这个数字越小， 完成故障转移所需的时间就越长
+sentinel parallel-syncs mymaster 1
+
+sentinel monitor resque 192.168.1.3 6380 4
+sentinel down-after-milliseconds resque 10000
+sentinel failover-timeout resque 180000
+sentinel parallel-syncs resque 5
+
+# 启动哨兵
+redis-server /path/to/sentinel.conf --sentinel
+
+# 哨兵启动以后会重写配置文件，补全集群的节点信息
+```
+
+
+
+**哨兵之间是如何通信的？**
+
+是通过在主节点开启了发布订阅
+
+```sh
+在主节点用命令可以看通信内容
+PSUBSCRIBE *
+```
+
+![image-20211220144129409](assets/image-20211220144129409.png)
+
+
+
+1. **数据拆分**
 
    模型
 
@@ -938,7 +1027,7 @@ X轴可以解决单点故障，但带来了新的问题：如何保证数据一�
 
      
 
-4. 
+2. 
 
 
 

@@ -4,11 +4,11 @@ Class常量池可以理解为是Class文件中的资源仓库。 Class文件中�
 
 一个class文件的16进制（1个16进制数占4位，0.5字节）大体结构如下图：
 
-![image-20220309231024487](D:\data\code\github\notebook\java\assets\image-20220309231024487.png)
+![image-20220309231024487](assets\image-20220309231024487.png)
 
 对应的含义如下，细节可以查下oracle官方文档
 
-![image-20220309231035662](D:\data\code\github\notebook\java\assets\image-20220309231035662.png)
+![image-20220309231035662](assets\image-20220309231035662.png)
 
 当然我们一般不会去人工解析这种16进制的字节码文件，我们一般可以通过javap命令生成更可读的JVM字节码指令文件：
 
@@ -288,6 +288,12 @@ String s2=new StringBuilder("abc").toString();
 System.out.println(s2==s2.intern());  //false
 //同上
 ```
+
+## Intern
+
+https://tech.meituan.com/2014/03/06/in-depth-understanding-string-intern.html
+
+
 
 ## **八种基本类型的包装类和对象池**
 

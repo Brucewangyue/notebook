@@ -354,7 +354,7 @@ JVM加载的时候】进行织入到.class代码中。在实际生产中，我�
 
 ### 一、入口
 
-以下的三种方式其实都是去创建 AnnotationAwareAspectJAutoProxyCreator Bean定义
+以下的三种方式其实都是去创建 **AnnotationAwareAspectJAutoProxyCreator** Bean定义
 
 **通过配置文件直接配置**
 

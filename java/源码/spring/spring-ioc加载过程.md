@@ -645,6 +645,8 @@ return beanInstance;
 
 **创建实例** 
 
+<img src="assets/image-20220515235303416.png" alt="image-20220515235303416" style="zoom: 80%;" />
+
 首先是创建实例，位于：
 
 ```java

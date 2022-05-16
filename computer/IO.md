@@ -550,23 +550,23 @@ strace -ff -o out /usr/java/j2sdk1.4.2_18/bin/java TestSocket
 
 当有一个客户端连接进来：nc ip 8090
 
-![image-20220403134142507](D:\data\code\github\notebook\computer\assets\image-20220403134142507.png)
+![image-20220403134142507](assets\image-20220403134142507.png)
 
 再跟踪进程文件描述符，看到了5号文件描述符 = socket(四元组)
 
-![image-20220403134258185](D:\data\code\github\notebook\computer\assets\image-20220403134258185.png)
+![image-20220403134258185](assets\image-20220403134258185.png)
 
 再看主线程的系统调用信息，java代码中的new Thread() ，实际上是调用了内核的clone，得到一个8447的新线程号，根据flags的参数显示，8447是会共享主线程的数据的，比如fd5，fd3
 
-![image-20220403134551202](D:\data\code\github\notebook\computer\assets\image-20220403134551202.png)
+![image-20220403134551202](assets\image-20220403134551202.png)
 
 此时strace也多创建了一个跟踪文件
 
-![image-20220403134659814](D:\data\code\github\notebook\computer\assets\image-20220403134659814.png)
+![image-20220403134659814](assets\image-20220403134659814.png)
 
 查看out.8447内容，8447线程正在对fd5进行recv系统调用，内核就会阻塞等待数据
 
-![image-20220403135359941](D:\data\code\github\notebook\computer\assets\image-20220403135359941.png)
+![image-20220403135359941](assets\image-20220403135359941.png)
 
 **扩展：系统调用文档**
 
@@ -583,7 +583,7 @@ man 2 socket
 
 系统调用clone很消耗性能
 
-![image-20220403140919840](D:\data\code\github\notebook\computer\assets\image-20220403140919840.png)
+![image-20220403140919840](assets\image-20220403140919840.png)
 
 
 

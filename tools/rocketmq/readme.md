@@ -73,9 +73,21 @@ broker有一个定时的事务回查服务，每分钟都会检查处于prepare�
 
 通常都要在本地创建本地事务表，存储事务ID，用于检查本地事务状态，然后生产者再次向broker发送事务状态
 
+## 负载均衡
+
+### Producer负载均衡
+
+发送端指定message queue发送消息到相应的Broker，来达到写入时的负载均衡
+
+默认策略是：跟queue列表取模
 
 
-## 消费者客户端负载
+
+### Broker负载均衡
+
+
+
+### Consumer负载均衡
 
 **消费者组如何知道自己该处理某一个topic的哪些队列？**
 
@@ -89,16 +101,24 @@ broker有一个定时的事务回查服务，每分钟都会检查处于prepare�
 4. 消费者内部对消费者组内成员和Topic对应的消息队列排序，做统一视图
 5. 根据负载算法确认自己可以消费的消息队列
 
-#### 计算分配算法
+#### 负载分配算法
 
 首先消费者知道两组信息：
 
 1. 消费者组内有哪些成员（通过向broker拉取，nameServer？）nameServer通过心跳收集消费者信息
 2. topic在broker中消息队列的分配信息
 
-平均分配算法（默认）：消费者对象会在本地对消费者列表排序，得到老一、老二、老三这样一个顺序
+**平均分配算法（默认）**：消费者对象会在本地对消费者列表排序，得到老一、老二、老三这样一个顺序
 
 计算每个消费者分配的队列数，队列总数/消费者数，余数按消费者列表由大到小再分配
+
+其他还有：
+
+- 环形分配策略(AllocateMessageQueueAveragelyByCircle)
+- 手动配置分配策略(AllocateMessageQueueByConfig)
+- 机房分配策略(AllocateMessageQueueByMachineRoom)
+- 一致性哈希分配策略(AllocateMessageQueueConsistentHash)
+- 靠近机房策略(AllocateMachineRoomNearby)
 
 
 
@@ -178,8 +198,8 @@ broker收到重试消息以后，不会直接将消息放入重试主题，而�
    2. 服务端会创建一个“长轮询”对象，保存两个关键信息
       - 拉消息请求的位点信息
       - broker和客户端的Netty Channel会话对象
-   3. 将“长轮询”对象交给长轮询服务 （PullRequestHoldService） ，本次拉消息先不给返回结果
-   4. 长轮询服务有自己的工作线程，是一个死循环，每几秒钟执行一次，检查”长轮询“对象，提取出”长轮询“对象的拉消息参数
+   3. 将“长轮询”对象交给拉请求保持服务 （PullRequestHoldService） ，本次拉消息先不给返回结果
+   4. 拉请求保持服务有自己的工作线程，是一个死循环，每几秒钟执行一次，检查”长轮询“对象，提取出”长轮询“对象的拉消息参数
    5. 根据这些参数再次检查队列最大的offset，判断是否有新数据
       1. 如果有新数据，那么会接着从“长轮询”对象中提取出Netty Channel会话对象，再次调用PullMessageProcessor协议处理器去处理拉消息逻辑
       2. 这一次如果还是没有查询到消息，也会把结果返回给客户端
@@ -219,7 +239,228 @@ https://developer.51cto.com/article/658043.html
 
 ## 顺序消费
 
+1. 生产者，将业务Id与固定的消息队列(queueId)做映射：发消息时取模
+2. 消息消费者使用的监听器类型为顺序型，而非并发型监听器
+3. 顺序型监听器在重试时会阻塞当前重试的topic所在的队列，默认每2秒重试一次
 
+
+
+## 保证消息不丢
+
+RocketMQ的消息生命周期分为三个阶段，每个阶段都有可能造成数据的丢失
+
+- 生产者生产消息阶段：通过网络发送消息给Broker，中间可能出现网络抖动，造成Broker没有真正接收到消息
+- Broker存储消息阶段：存储消息的过程中宕机了，最后的未真正刷盘的消息会丢失
+- 消费者消费消息阶段：消费失败了，但是Broker不知道，没有重试
+
+### Producer生产阶段
+
+在Producer发送消息时，有三种消息发送方式
+
+- 同步发送
+- 异步发送
+- 单向发送
+
+#### 同步发送
+
+发送消息时同步阻塞等待Broker返回结果，如果没有成功则不会收到SendResult，这种是最可靠的
+
+```java
+public SendResult send(Message msg) throws MQClientException, RemotingException, 	 MQBrokerException, InterruptedException {}
+```
+
+
+
+#### 异步发送
+
+发送消息不阻塞，Broker收到消息会回调Producer发送消息时注册的回调方法得知是否发送成功
+
+```java
+public void send(Message msg,SendCallback sendCallback) throws MQClientException, RemotingException, InterruptedException {}
+```
+
+这种方式可能会造成消息的重新发送，有一种情况，其实消息已经成功到达Broker，但是Broker的回调失败了，那么Producer会认为没有成功，后续如果业务做了定时回查自己本地业务表状态，发现状态是没有发送成功，那么业务再次将这些失败消息再次发送就会造成消息重复，对于这种消息，消费者需要对业务id做幂等判断
+
+
+
+#### 单向发送
+
+最不安全，不清楚有没有发送成功
+
+```java
+public void sendOneway(Message msg) throws MQClientException, RemotingException, InterruptedException {}
+```
+
+
+
+#### 消息重试
+
+Producer在发送消息失败后，会自动向其他的Broker节点再次发送消息
+
+只有同步发送和异步发送有重试策略
+
+- 同步发送：设置的发送失败重试次数(默认是2)+1
+- 异步发送：设置的发送失败重试次数  ??
+
+**源码**
+
+```java
+/**
+ * {@link org.apache.rocketmq.client.producer.DefaultMQProducer#sendDefaultImpl(Message, CommunicationMode, SendCallback, long)}
+ */
+```
+
+#### 总结
+
+1. 使用同步发送消息
+2. 自动重试
+3. Broker做集群
+
+
+
+### Broker存储阶段
+
+Broker接收到消息，会根据配置的刷盘策略刷盘，如果在下次刷盘前宕机，那么消息会丢失，刷盘策略有：
+
+- 同步刷盘
+- 异步刷盘（默认）
+
+#### 同步刷盘
+
+当Broker收到消息后，会立马同步刷盘，等待刷盘完成才会向Producer返回，这样就不会造成生成者发送的消息丢失，但是性能差，需要按业务场景取舍
+
+```properties
+## 默认情况为 ASYNC_FLUSH，修改为同步刷盘：SYNC_FLUSH
+flushDiskType = ASYNC_FLUSH 
+```
+
+对应的类
+
+```java
+public enum FlushDiskType {
+    // 同步刷盘
+    SYNC_FLUSH,
+    // 异步刷盘（默认）
+    ASYNC_FLUSH
+}
+```
+
+#### 异步刷盘
+
+当Broker收到消息后，先存放在缓冲区，然后立马给Producer返回，这种方式最多会丢失一个缓冲区的数据
+
+异步刷盘默认10s执行一次，源码如下：
+
+```java
+// {@link org.apache.rocketmq.store.CommitLog#run()}
+while (!this.isStopped()) {
+    try {
+        // 等待10s
+        this.waitForRunning(10);
+        // 刷盘
+        this.doCommit();
+    } catch (Exception e) {
+        CommitLog.log.warn(this.getServiceName() + " service has exception. ", e);
+    }
+}
+```
+
+#### Broker集群
+
+有以下极端情况
+
+1. 如果是单节点，就算是刷盘完成了，那么此时磁盘坏了，数据没了
+2. 如果是1主1从，在主刷盘完成后，给生成这返回，但是在将数据同步到从节点前挂了，从节点没同步到消息，也就丢失了
+
+RocketMQ还提供了更为严格的数据一致性方式：主节点配置阻塞同步，必须等消息同步到从节点才给生产者返回
+
+这种配置就更影响性能了，适用需要一致性比较强的场景才适用
+
+```properties
+## 默认为 ASYNC_MASTER
+brokerRole=SYNC_MASTER
+```
+
+这么强的一致性必然带来可用性的问题，其中一个节点挂了那么服务就不可用了 ？？
+
+#### 总结
+
+主从节点都开启同步刷盘、主节点配置成同步主节点
+
+
+
+### Consumer消费阶段
+
+消费者从Broker拉取新消息，消费成功后需要给Broker返回ack，如果Broker没有收到ack，那么会针对不同的消费者做不同的处理
+
+#### 消费者消费模式
+
+消费模式由Consumer决定
+
+- 集群模式：一个消费者组内只有一个成员会处理某一条消息
+- 广播模式：一个消费者组内所有消费者都会处理同一条消息
+
+广播模式是没有重试机制的
+
+
+
+#### 并发消费
+
+集群模式下的并发消费：如果消费者没有向Broker返回ack，那么Broker会根据有问题的Topic和重试次数来创建**延时消息(SCHEDULE_TOPIC_XXXX)**，等待一段时间之后会根据延时消息来创建**重试消息(“%RETRY%+consumerGroup”)**，消费者在启动的时候已经对相关的Topic的重试消息进行了订阅
+
+> 延时消息包含一个延时级别，延时消息根据Topic重试次数来决定使用哪个延时级别
+>
+> 延时级别：1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h (18个level)
+>
+> - 可以在Broker配置自定义messageDelayLevel，作用于所有Topic-
+> - 每个延时级别对应一个Queue，queueId = delayTimeLevel – 1，即一个queue只存相同延迟的消息
+
+
+
+#### 顺序消费
+
+集群模式下的顺序消费：如果消费者没有向Broker返回ack，那么Broker会阻塞这个Topic所在的队列，然后每两秒重试一次，没有重试限制，直到消费者最终返回消息
+
+**如果消费者挂了怎么处理？**
+
+首先我们知道消费者会向NameServer上报心跳包，消费者如果所属的消费者组有其他成员，他们在一段时间后是会知道消费者组的成员列表少了，并且消费者在启动的时候就开启一个Rebalance的线程，默认每20秒更新自己能处理哪些Topic所属的消息队列，在经过平衡后，Broker的消息队列会被其他的消费者接管
+
+
+
+## 消息重复处理
+
+
+
+## 消息积压处理
+
+下游消费系统如果宕机了，导致几百万条消息在消息中间件里积压，此时怎么处理?
+
+你们线上是否遇到过消息积压的生产故障?如果没遇到过，你考虑一下如何应对?
+
+然后看下消息消费速度是否正常，正常的话，可以通过上线更多consumer临时解决消息堆积问题
+
+
+
+**追问：如果Consumer和Queue不对等，上线了多台也在短时间内无法消费完堆积的消息怎么办？**
+
+也就是说一开始的Topic设置的队列数过少，上线多台Consumer也无法消费
+
+- 准备一个临时的topic
+- queue的数量是堆积的几倍
+
+queue分布到多Broker中
+
+上线一台Consumer做消息的搬运工，把原来Topic中的消息挪到新的Topic里，不做业务逻辑处理，只是挪过去
+
+上线N台Consumer同时消费临时Topic中的数据
+
+改bug
+
+
+
+**追问：堆积时间过长消息超时了？**
+
+RocketMQ中的消息只会在commitLog被删除的时候才会消失，不会超时。也就是说未被消费的消息不会存在超时删除这情况
 
 
 
@@ -232,3 +473,49 @@ https://developer.51cto.com/article/658043.html
 ### 重试次数
 
 默认16次
+
+### 什么时候会清理过期消息？
+
+默认是48小时后会删除不再使用的CommitLog，另外可以指定删除时间（默认凌晨4点）
+
+```java
+/**
+ * {@link org.apache.rocketmq.store.DefaultMessageStore.CleanCommitLogService#isTimeToDelete()}
+ */
+private boolean isTimeToDelete() {
+    // when = "04";
+    String when = DefaultMessageStore.this.getMessageStoreConfig().getDeleteWhen();
+    // 是04点，就返回true
+    if (UtilAll.isItTimeToDo(when)) {
+        return true;
+    }
+	// 不是04点，返回false
+    return false;
+}
+
+/**
+ * {@link org.apache.rocketmq.store.DefaultMessageStore.CleanCommitLogService#deleteExpiredFiles()}
+ */
+private void deleteExpiredFiles() {
+    // isTimeToDelete()这个方法是判断是不是凌晨四点，是的话就执行删除逻辑。
+    if (isTimeToDelete()) {
+        // 默认是72，但是broker配置文件默认改成了48，所以新版本都是48。
+        long fileReservedTime = 48 * 60 * 60 * 1000;
+        deleteCount = DefaultMessageStore.this.commitLog.deleteExpiredFile(72 * 60 * 60 * 1000, xx, xx, xx);
+    }
+}
+                                                                       
+/**
+ * {@link org.apache.rocketmq.store.CommitLog#deleteExpiredFile()}
+ */
+public int deleteExpiredFile(xxx) {
+    // 这个方法的主逻辑就是遍历查找最后更改时间+过期时间，小于当前系统时间的话就删了（也就是小于48小时）。
+    return this.mappedFileQueue.deleteExpiredFileByTime(72 * 60 * 60 * 1000, xx, xx, xx);
+}
+```
+
+### 为什么要主动拉取消息而不使用事件监听方式？
+
+对于时间监听方式，是通过建立长连接，由Broker主动给消费者推
+
+如果Broker推送消息过快，消费者会积压消息，且到达消费者后，不能被同一个消费者组的其他成员消费，而Pull的方式是消费者根据自身情况来Pull，不会造成过多的压力而造成瓶颈

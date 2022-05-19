@@ -5,6 +5,11 @@
 
 [官方中文文档](https://github.com/apache/rocketmq/tree/master/docs/cn)
 
+## 介绍
+
+- 削峰/限流
+- 服务解耦
+
 
 
 ## 版本

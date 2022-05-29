@@ -35,7 +35,7 @@
   ```sh
   yum install -y java-1.8*
   
-  # 查看java安装包，定位jdk安装路径
+  # 查看java安装包，定位jdk安装路径 /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.332.b09-1.el7_9.x86_64/
   rpm -qa | grep java
   
   # 配置JAVA_HOME

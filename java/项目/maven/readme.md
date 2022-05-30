@@ -618,3 +618,48 @@ vim /data/nexus-data/nexus3/admin.password
 将远程仓库设置为国内的仓库地址：http://maven.aliyun.com/nexus/content/groups/public
 
 ![image-20220530002836175](assets/image-20220530002836175.png)
+
+
+
+### 本地配置
+
+修改本地maven的settings.xml文件
+
+```xml
+<servers>
+  <server>
+    <!--这个id需要与maven工程pom中的distributionManagement repository id 一样-->
+    <id>maven-public</id>
+    <!--具有deploy权限的账号就可以-->
+    <username>admin</username>
+    <password>****</password>
+  </server>
+</servers>
+```
+
+
+
+修改maven工程的pom.xml，注意：如果想通过父工程一次性部署，不单止父工程需要配置，子工程也要配置才会有作用
+
+```xml
+<distributionManagement>
+    <repository>
+        <id>maven-public</id>
+        <url>http://ip:port/repository/maven-releases/</url>
+    </repository>
+    <snapshotRepository>
+        <id>maven-public</id>
+        <url>http://ip:port/repository/maven-snapshots/</url>
+    </snapshotRepository>
+</distributionManagement>
+```
+
+
+
+修改release仓库
+
+默认release仓库只允许提交仓库，不允许修改仓库（不允许再次部署相同版本的jar包），如果不设置在部署时会报一下错误
+
+400 Repository does not allow updating assets: maven-releases
+
+<img src="assets/image-20220530222010609.png" alt="image-20220530222010609" style="zoom:80%;" />

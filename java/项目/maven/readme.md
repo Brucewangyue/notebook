@@ -626,6 +626,14 @@ vim /data/nexus-data/nexus3/admin.password
 修改本地maven的settings.xml文件
 
 ```xml
+<!--很怪，3.6.3版本mirror和profiles都配置了才能在nexus下载jar-->
+<mirror>
+  <id>nexus-public</id>
+  <mirrorOf>*</mirrorOf>
+  <name>nexus-public</name>
+  <url>http://ip:port/repository/maven-public/</url>
+</mirror>
+
 <servers>
   <server>
     <!--这个id需要与maven工程pom中的distributionManagement repository id 一样-->
@@ -634,7 +642,40 @@ vim /data/nexus-data/nexus3/admin.password
     <username>admin</username>
     <password>****</password>
   </server>
+  <server>
+    <!--如果关闭的访客模式，那么这里需要配置profiles的-->
+    <id>nexus-public</id>
+    <username>admin</username>
+    <password>****</password>
+  </server>
 </servers>
+
+<!--配置项目从哪个仓库拉包，如果配置了profile，那么项目的pom中就不需要配置repositories了-->
+<profiles>
+  <profile>
+    <id>nexus-public</id>
+    <repositories>
+      <repository>
+        <id>maven-public</id>
+        <url>http://ip:port/repository/maven-public/</url>
+        <releases><enabled>true</enabled></releases>
+        <snapshots><enabled>true</enabled></snapshots>
+      </repository>
+    </repositories>
+    <pluginRepositories>
+      <pluginRepository>
+        <id>maven-public</id>
+        <url>http://ip:port/repository/maven-central/</url>
+        <releases><enabled>true</enabled></releases>
+        <snapshots><enabled>true</enabled></snapshots>
+      </pluginRepository>
+    </pluginRepositories>
+  </profile>
+</profiles>
+<!--表示启用的profiles-->
+<activeProfiles>
+  <activeProfile>nexus-public</activeProfile>
+</activeProfiles>
 ```
 
 

@@ -46,11 +46,11 @@
 
 4. 进入http://localhost:8848/nacos，用户名和密码默认nacos
 
-## Nacos服务注册发现原理
+## 服务注册发现原理
 
 
 
-## Nacos置中心原理
+## 配置中心原理
 
 [源码流程图](https://www.processon.com/view/link/603f3d2fe401fd641adb51f1)
 
@@ -105,7 +105,7 @@ public class ConfigServerDemo {
         // content = configService.getConfig(dataId, group, 5000); 
         // System.out.println(content); 
         // Thread.sleep(300000); 
-    } 
+    }
 }
 ```
 
@@ -153,7 +153,7 @@ ClientWorker 通过其下的两个线程池完成配置长轮询的工作
 
 ![image-20220422152050517](assets/image-20220422152050517.png)
 
-服务端启动时就会依赖 DumpService 的 init 方法，从数据库中 load 配置存储在本地磁盘上，并将一些重要的元信 、息例如 MD5 值缓存在内存中。服务端会根据心跳文件中保存的最后一次心跳时间，来判断到底是从数据库 dump 全量配置数据还是部分增量配置数据（如果机器上次心跳间隔是 6h 以内的话）
+服务端启动时就会依赖 DumpService 的 init 方法，从数据库中 load 配置存储在本地磁盘上，并将一些重要的元信息 、例如 MD5 值缓存在内存中。服务端会根据心跳文件中保存的最后一次心跳时间，来判断到底是从数据库 dump 全量配置数据还是部分增量配置数据（如果机器上次心跳间隔是 6h 以内的话）
 
 全量 dump 当然先清空磁盘缓存，然后根据主键 ID 每次捞取一千条配置刷进磁盘和内存。
 
@@ -169,6 +169,6 @@ ConfigController # publishConfig。
 
 #### 处理长轮询
 
-客户端会有一个长轮询任务，拉取服务端的配置变更，服务端处理逻辑在LongPollingService类中，其中有一个 Runnable 任务名为ClientLongPolling，服务端会将受到的轮询请求包装成一个 ClientLongPolling 任务，该任务持有一个 AsyncContext 响应对象，通过定时线程池延后 29.5s 执行。比客户端 30s 的超时时间提前 500ms 返回是为了最大程度上保证客户端不会因为网络延时造成超时
+客户端会有一个长轮询任务，拉取服务端的配置变更，服务端处理逻辑在LongPollingService类中，其中有一个 Runnable 任务名为ClientLongPolling，服务端会将收到的轮询请求包装成一个 ClientLongPolling 任务，该任务持有一个 AsyncContext 响应对象，通过定时线程池延后 29.5s 执行。比客户端 30s 的超时时间提前 500ms 返回是为了最大程度上保证客户端不会因为网络延时造成超时
 
 ![image-20220422152347796](assets/image-20220422152347796.png)

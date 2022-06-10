@@ -93,7 +93,7 @@ public static void testBufferedFileIO() throws Exception {
 
 内存大小
 
-![image-20220401203834441](D:\data\code\github\notebook\computer\assets\image-20220401203834441.png)
+![image-20220401203834441](assets\image-20220401203834441.png)
 
 
 
@@ -107,27 +107,23 @@ vi out.1350
 
 普通文件流
 
-![image-20220401210706962](D:\data\code\github\notebook\computer\assets\image-20220401210706962.png)
+![image-20220401210706962](assets\image-20220401210706962.png)
 
 使用了buffered，明显减少了很多的系统调用
 
-![image-20220401211128987](D:\data\code\github\notebook\computer\assets\image-20220401211128987.png)
+![image-20220401211128987](assets\image-20220401211128987.png)
 
 
 
 以上使用的是IO
 
-![image-20220401211420856](D:\data\code\github\notebook\computer\assets\image-20220401211420856.png)
+<img src="assets\image-20220401211420856.png" alt="image-20220401211420856" style="zoom:80%;" />
 
 ## NIO
 
-![image-20220401211441229](D:\data\code\github\notebook\computer\assets\image-20220401211441229.png)
-
-
+<img src="assets\image-20220401211441229.png" alt="image-20220401211441229" style="zoom:80%;" />
 
 mmap 内存映射，就是直接将数据写到内核的pagecache ，不需要向io那样通过write系统调用，产生用户态到内核态的切换造成的性能损耗
-
-
 
 **测试文件NIO**
 
@@ -188,31 +184,31 @@ public static void testRandomAccessFileWrite() throws  Exceptio
 
 1. 第一个read阻塞
 
-   ![image-20220401214829827](D:\data\code\github\notebook\computer\assets\image-20220401214829827.png)
+   ![image-20220401214829827](assets\image-20220401214829827.png)
 
    虽然文件有内容，但是此时数据还是在内存中
 
 2. 第二个read阻塞：演示随机读写能力
 
-   ![image-20220401214948086](D:\data\code\github\notebook\computer\assets\image-20220401214948086.png)
+   ![image-20220401214948086](assets\image-20220401214948086.png)
 
 3. 第三个read阻塞：验证mmap映射
 
    lsof 查看进程的文件描述符，以及内存映射
 
-   ![image-20220401215102242](D:\data\code\github\notebook\computer\assets\image-20220401215102242.png)
+   ![image-20220401215102242](assets\image-20220401215102242.png)
 
-   ![image-20220401215201657](D:\data\code\github\notebook\computer\assets\image-20220401215201657.png)
+   ![image-20220401215201657](assets\image-20220401215201657.png)
 
    第一个红圈表示mmap映射，直接写数据不需要syscall
 
    第二个是随机写文件raf，需要syscall
 
-   ![image-20220401215331639](D:\data\code\github\notebook\computer\assets\image-20220401215331639.png)
+   ![image-20220401215331639](assets\image-20220401215331639.png)
 
 **代码的模型**
 
-![image-20220401220521251](D:\data\code\github\notebook\computer\assets\image-20220401220521251.png)
+![image-20220401220521251](assets\image-20220401220521251.png)
 
 - 堆内：jvm的堆里的字节数组
 - 堆外：jvm的堆外，也就是java进程的堆里的字节数组
@@ -429,21 +425,21 @@ public class SocketClient {
 
    看网络连接，内核连接数据接收队列被读取了，并且连接被分配给了7932进程
 
-   ![image-20220402224200715](D:\data\code\github\notebook\computer\assets\image-20220402224200715.png)
+   ![image-20220402224200715](assets\image-20220402224200715.png)
 
    看进程分配的文件描述符，多了一个6
 
-   ![image-20220402224346391](D:\data\code\github\notebook\computer\assets\image-20220402224346391.png)
+   ![image-20220402224346391](assets\image-20220402224346391.png)
 
    **进程想使用socket，且从中读取数据，要通过文件描述符，文件描述符是socket抽象的代表，换言之java中socket就是文件描述符的抽象**
 
-   ![image-20220402232328262](D:\data\code\github\notebook\computer\assets\image-20220402232328262.png)
+   ![image-20220402232328262](assets\image-20220402232328262.png)
 
 9. 验证BACK_LOG，假设代码中配置了2
 
    同时运行多3个客户端，到第三个的时候会出现阻塞
 
-   ![image-20220402233327354](D:\data\code\github\notebook\computer\assets\image-20220402233327354.png)
+   ![image-20220402233327354](assets\image-20220402233327354.png)
 
    SYN_RECV表示三次握手时服务端没有给客户端ack
 
@@ -459,21 +455,19 @@ public class SocketClient {
 
     由于优化没打开，消息被分包发送了（能发送的尽量发送）根据内核调度
 
-    ![image-20220403010723279](D:\data\code\github\notebook\computer\assets\image-20220403010723279.png)
+    ![image-20220403010723279](assets\image-20220403010723279.png)
 
-    ![image-20220403010641974](D:\data\code\github\notebook\computer\assets\image-20220403010641974.png)
+    ![image-20220403010641974](assets\image-20220403010641974.png)
 
     如果delay优化打开，以上数据会以一个包一起发送（发送时会有延时）
 
 11. 验证keepalive
 
-    ![image-20220403131947102](D:\data\code\github\notebook\computer\assets\image-20220403131947102.png)
+    ![image-20220403131947102](assets\image-20220403131947102.png)
 
 **TCP连接模型**
 
 ![image-20220402232645988](assets\image-20220402232645988.png)
-
-
 
 ## 网络IO演进
 
@@ -584,8 +578,6 @@ man 2 socket
 系统调用clone很消耗性能
 
 ![image-20220403140919840](assets\image-20220403140919840.png)
-
-
 
 
 
@@ -773,15 +765,15 @@ public class SocketNIO {
 
 查看系统调用跟踪，accept不阻塞，且返回-1，表示当前没有新客户端连接
 
-![image-20220403172424991](D:\data\code\github\notebook\computer\assets\image-20220403172424991.png)
+![image-20220403172424991](assets\image-20220403172424991.png)
 
 此时新开一个客户端： nc ip 9090
 
-![image-20220403172723718](D:\data\code\github\notebook\computer\assets\image-20220403172723718.png)
+![image-20220403172723718](assets\image-20220403172723718.png)
 
 NIO模式下，连接速度慢，客户端连接和遍历客户端数据在同一个线程，遍历客户端是否有数据需要系统调用，非常耗性能
 
-![image-20220403205006099](D:\data\code\github\notebook\computer\assets\image-20220403205006099.png)
+![image-20220403205006099](assets\image-20220403205006099.png)
 
 **too many open files 的问题**，修改内核配置
 
@@ -802,7 +794,7 @@ cat /proc/sys/fs/file-max
 
 ### NIO模型
 
-![image-20220403203121293](D:\data\code\github\notebook\computer\assets\image-20220403203121293.png)
+![image-20220403203121293](assets\image-20220403203121293.png)
 
 
 
@@ -821,20 +813,20 @@ cat /proc/sys/fs/file-max
 
 受FD_SETSIZE配置的影响，默认一次只能查询1024个IO连接的状态
 
-![image-20220403233903314](D:\data\code\github\notebook\computer\assets\image-20220403233903314.png)
+![image-20220403233903314](assets\image-20220403233903314.png)
 
 **弊端**
 
 - 一次系统调用只能查询1024个IO连接的状态
 - 每次都要重新，重复传递fd，内核要对fd进行遍历
 
-![image-20220403235231772](D:\data\code\github\notebook\computer\assets\image-20220403235231772.png)
+![image-20220403235231772](assets\image-20220403235231772.png)
 
 
 
 ### 扩展：系统调用
 
-![image-20220404001114791](D:\data\code\github\notebook\computer\assets\image-20220404001114791.png)
+![image-20220404001114791](assets\image-20220404001114791.png)
 
 1. CPU运行app程序的指令
 2. 假如是int 80 指令
@@ -1016,7 +1008,7 @@ public class SocketMultiplexingSingleThreadv1 {
 javac SocketMultiplexingSingleThreadv1.java && strace -ff -o poll java -Djava.nio.channels.spi.SelectorProvider=sun.nio.ch.PollSelectorProvider SocketMultiplexingSingleThreadv1
 ```
 
-![image-20220404170537116](D:\data\code\github\notebook\computer\assets\image-20220404170537116.png)
+![image-20220404170537116](assets\image-20220404170537116.png)
 
 在本机开启一个客户端连接
 
@@ -1024,15 +1016,15 @@ javac SocketMultiplexingSingleThreadv1.java && strace -ff -o poll java -Djava.ni
 nc localhost 9090
 ```
 
-![image-20220404170655243](D:\data\code\github\notebook\computer\assets\image-20220404170655243.png)
+![image-20220404170655243](assets\image-20220404170655243.png)
 
 client 此时 ctrl + c 断开，如果代码中把 client.close(); 注释掉了，那么会出现以下的情况，因为服务端没有给客户端发分手包，没有完成4次分手
 
-![image-20220404170930704](D:\data\code\github\notebook\computer\assets\image-20220404170930704.png)
+![image-20220404170930704](assets\image-20220404170930704.png)
 
 **系统调用过程**
 
-![image-20220404181302191](D:\data\code\github\notebook\computer\assets\image-20220404181302191.png)
+![image-20220404181302191](assets\image-20220404181302191.png)
 
 
 
@@ -1046,7 +1038,7 @@ epoll_create、epoll_ct、epoll_wait
 
 - 规避fd的全量遍历
 
-![image-20220404144652129](D:\data\code\github\notebook\computer\assets\image-20220404144652129.png)
+![image-20220404144652129](assets\image-20220404144652129.png)
 
 **验证EPOLL**
 
@@ -1054,7 +1046,7 @@ epoll_create、epoll_ct、epoll_wait
 javac SocketMultiplexingSingleThreadv1.java && strace -ff -o poll java SocketMultiplexingSingleThreadv1
 ```
 
-![image-20220404182752379](D:\data\code\github\notebook\computer\assets\image-20220404182752379.png)
+![image-20220404182752379](assets\image-20220404182752379.png)
 
 **示例代码：多线程、写**
 

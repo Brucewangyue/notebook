@@ -76,7 +76,7 @@ jstack pid | grep nid -C5 –color
 
 ![image-20220309172838438](assets/image-20220309172838438.png)
 
-- "Thread-1" 线程名 
+- "Thread-1" 线程名
 - prio=5 优先级=5
 - tid=0x000000001fa9e000 线程id
 - nid=0x2d64 线程对应的本地线程标识nid
@@ -130,6 +130,7 @@ vmstat 1
 cs(context switch)一列则代表了上下文切换的次数。如果我们希望对特定的pid进行监控那么可以使用
 
 ```sh
+yum install -y sysstat
 pidstat -w pid
 ```
 
@@ -172,6 +173,7 @@ readlink -f /proc/*/task/tid/../..
 我们还可以通过lsof命令来确定具体的文件读写情况
 
 ```sh
+yum install -y lsof
 lsof -p pid
 ```
 
@@ -189,7 +191,7 @@ free
 
 ### OOM
 
-JMV中的内存不足，OOM大致可以分为以下几种：
+JVM中的内存不足，OOM大致可以分为以下几种：
 
 **1.Exception in thread "main" java.lang.OutOfMemoryError: unable to create new native thread**
 
@@ -335,7 +337,7 @@ jmap -histo:live pid
 
 我们在cpu章介绍了使用jstat来获取当前GC分代变化信息。而更多时候，我们是通过GC日志来排查问题的，在启动参数中加上-verbose:gc -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+PrintGCTimeStamps来开启GC日志
 
-针对gc日志，我们就能大致推断出youngGC与fullGC是否过于频繁或者耗时过长，从而对症下药。我们下面将对G1垃圾收集器来做分析，这边也建议大家使用G1-XX:+UseG1GC
+针对gc日志，我们就能大致推断出youngGC与fullGC是否过于频繁或者耗时过长，从而对症下药。我们下面将对G1垃圾收集器来做分析，这边也建议大家使用G1  -XX:+UseG1GC
 
 ### YoungGC过频繁
 
@@ -410,6 +412,7 @@ tcp队列溢出是个相对底层的错误，它可能会造成超时、rst等�
 netstat命令
 
 ```sh
+yum install -y net-tools
 netstat -s | egrep "listen|LISTEN"
 ```
 
@@ -1056,7 +1059,7 @@ public class Math {
 ### 案例二：**系统频繁Full GC导致系统卡顿是怎么回事**
 
 - 机器配置：2核4G
-- JVM内存大小：2G
+- JVM内存大小：2G`
 - 系统运行时间：7天
 - 期间发生的Full GC次数和耗时：500多次，200多秒
 - 期间发生的Young GC次数和耗时：1万多次，500多秒

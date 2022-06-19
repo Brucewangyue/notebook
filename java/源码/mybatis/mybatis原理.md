@@ -60,3 +60,6 @@ Spring集成Mybatis后的调用逻辑
 二级缓存
 
 <img src="assets/image-20220607002832730.png" alt="image-20220607002832730" style="zoom:80%;" />
+
+
+

@@ -2,9 +2,9 @@
 
 ## 简介
 
-Zookeeper是一个分布式的、开源的程序协调服务，是 [hadoop](https://so.csdn.net/so/search?q=hadoop) 项目下的一个子项目。
+Zookeeper是一个分布式的、开源的程序协调服务，是 hadoop 项目下的一个子项目。
 
-他提供的主要功能包括：配置管理、名字服务、[分布式锁](https://so.csdn.net/so/search?q=分布式锁)、集群管理 。
+他提供的主要功能包括：配置管理、名字服务、分布式锁、集群管理 。
 
 ## ZNode
 
